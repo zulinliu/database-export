@@ -95,12 +95,18 @@ public class FieldFilterConfig {
     }
 
     private String buildRangeCondition() {
-        String[] range = filterValue.split(",");
+        if (!filterValue.contains("-")) {
+            return "";
+        }
+        String[] range = filterValue.split("-", 2);
         if (range.length < 2) {
             return "";
         }
         String start = range[0].trim();
         String end = range[1].trim();
+        if (start.isEmpty() || end.isEmpty()) {
+            return "";
+        }
         return fieldName + " >= " + start + " AND " + fieldName + " <= " + end;
     }
 
