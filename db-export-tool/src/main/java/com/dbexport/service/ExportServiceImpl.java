@@ -69,8 +69,8 @@ public class ExportServiceImpl {
         }
     }
 
-    public List<Map<String, Object>> getTableList(HikariDataSource ds) {
-        List<Map<String, Object>> tableList = new ArrayList<>();
+    public List<String> getTableList(HikariDataSource ds) {
+        List<String> tableList = new ArrayList<>();
         try (Connection conn = ds.getConnection()) {
             conn.setReadOnly(true);
             DatabaseMetaData metaData = conn.getMetaData();
@@ -80,27 +80,35 @@ public class ExportServiceImpl {
             try (ResultSet rs = metaData.getTables(catalog, schema, "%", new String[]{"TABLE"})) {
                 while (rs.next()) {
                     String tableName = rs.getString("TABLE_NAME");
-                    Map<String, Object> tableInfo = new HashMap<>();
-                    tableInfo.put("tableName", tableName);
-
-                    try (Statement stmt = conn.createStatement();
-                         ResultSet countRs = stmt.executeQuery(
-                                 "SELECT COUNT(*) FROM " + escapeIdentifier(tableName))) {
-                        if (countRs.next()) {
-                            tableInfo.put("rowCount", countRs.getLong(1));
-                        }
-                    } catch (Exception e) {
-                        tableInfo.put("rowCount", 0L);
+                    if (tableName != null && !tableName.trim().isEmpty()) {
+                        tableList.add(tableName);
                     }
-
-                    tableInfo.put("dataSize", "0 B");
-                    tableList.add(tableInfo);
                 }
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to get table list: " + e.getMessage(), e);
         }
         return tableList;
+    }
+
+    public Map<String, Object> getTableInfo(HikariDataSource ds, String tableName) {
+        Map<String, Object> tableInfo = new HashMap<>();
+        tableInfo.put("tableName", tableName);
+        try (Connection conn = ds.getConnection()) {
+            conn.setReadOnly(true);
+            try (Statement stmt = conn.createStatement();
+                 ResultSet countRs = stmt.executeQuery("SELECT COUNT(*) FROM " + escapeIdentifier(tableName))) {
+                if (countRs.next()) {
+                    tableInfo.put("rowCount", countRs.getLong(1));
+                } else {
+                    tableInfo.put("rowCount", 0L);
+                }
+            }
+        } catch (Exception e) {
+            tableInfo.put("rowCount", 0L);
+        }
+        tableInfo.put("dataSize", "0 B");
+        return tableInfo;
     }
 
     public List<String> getTableColumns(HikariDataSource ds, String tableName) {

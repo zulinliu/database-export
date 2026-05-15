@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -236,11 +237,17 @@ public class ExportController {
                 pageTables = allTables.subList(fromIndex, toIndex);
             }
 
+            List<Map<String, Object>> tableInfoList = new ArrayList<>();
+            for (String tableName : pageTables) {
+                Map<String, Object> info = exportService.getTableInfo(ds, tableName);
+                tableInfoList.add(info);
+            }
+
             Map<String, Object> data = new HashMap<>();
             data.put("total", total);
             data.put("page", page);
             data.put("pageSize", pageSize);
-            data.put("tables", pageTables);
+            data.put("tables", tableInfoList);
 
             return ApiResponse.success(data);
         } catch (Exception e) {
@@ -276,17 +283,28 @@ public class ExportController {
                 return ApiResponse.error(400, "导出类型不能为空");
             }
 
-            if ("table".equals(exportType)) {
+            if ("customTables".equals(exportType)) {
+                if (config.getTables() == null || config.getTables().trim().isEmpty()) {
+                    return ApiResponse.error(400, "请输入要导出的表名");
+                }
+            } else if ("tableSelect".equals(exportType)) {
+                // tableSelect uses config.tables from JS (comma-separated selected table names)
                 if (config.getTables() == null || config.getTables().trim().isEmpty()) {
                     return ApiResponse.error(400, "请选择要导出的表");
                 }
-            } else if ("sql".equals(exportType)) {
+            } else if ("customSql".equals(exportType)) {
                 if (config.getCustomSql() == null || config.getCustomSql().trim().isEmpty()) {
                     return ApiResponse.error(400, "请输入自定义SQL语句");
                 }
-                SqlValidator.ValidationResult validationResult = SqlValidator.validate(config.getCustomSql());
-                if (!validationResult.isValid()) {
-                    return ApiResponse.error(400, "SQL验证失败: " + validationResult.getMessage());
+                String[] sqlLines = config.getCustomSql().split("\n");
+                for (String sql : sqlLines) {
+                    String trimmed = sql.trim();
+                    if (!trimmed.isEmpty()) {
+                        SqlValidator.ValidationResult validationResult = SqlValidator.validate(trimmed);
+                        if (!validationResult.isValid()) {
+                            return ApiResponse.error(400, "SQL验证失败: " + validationResult.getMessage());
+                        }
+                    }
                 }
             } else {
                 return ApiResponse.error(400, "不支持的导出类型: " + exportType);
