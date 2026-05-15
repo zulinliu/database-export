@@ -96,8 +96,9 @@ public class ExportServiceImpl {
         tableInfo.put("tableName", tableName);
         try (Connection conn = ds.getConnection()) {
             conn.setReadOnly(true);
-            try (Statement stmt = conn.createStatement();
-                 ResultSet countRs = stmt.executeQuery("SELECT COUNT(*) FROM " + escapeIdentifier(tableName))) {
+            String sql = "SELECT COUNT(*) FROM " + escapeIdentifier(tableName);
+            try (PreparedStatement pstmt = conn.prepareStatement(sql);
+                 ResultSet countRs = pstmt.executeQuery()) {
                 if (countRs.next()) {
                     tableInfo.put("rowCount", countRs.getLong(1));
                 } else {
@@ -115,8 +116,9 @@ public class ExportServiceImpl {
         List<String> columns = new ArrayList<>();
         try (Connection conn = ds.getConnection()) {
             conn.setReadOnly(true);
-            try (Statement stmt = conn.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT * FROM " + escapeIdentifier(tableName) + " WHERE 1=0")) {
+            String sql = "SELECT * FROM " + escapeIdentifier(tableName) + " WHERE 1=0";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql);
+                 ResultSet rs = pstmt.executeQuery()) {
                 ResultSetMetaData metaData = rs.getMetaData();
                 for (int i = 1; i <= metaData.getColumnCount(); i++) {
                     columns.add(metaData.getColumnName(i));
@@ -687,5 +689,27 @@ public class ExportServiceImpl {
 
     private String escapeIdentifier(String identifier) {
         return "\"" + identifier.replace("\"", "\"\"") + "\"";
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 3600000)
+    public void cleanupCompletedTasks() {
+        long cutoffTime = System.currentTimeMillis() - 86400000L;
+        taskProgressMap.entrySet().removeIf(entry -> {
+            ExportProgress progress = entry.getValue();
+            if (!"RUNNING".equals(progress.getStatus()) && !"PENDING".equals(progress.getStatus())) {
+                if (progress.getStartTime() != null && progress.getStartTime() < cutoffTime) {
+                    String taskId = entry.getKey();
+                    HikariDataSource ds = taskDataSourceMap.remove(taskId);
+                    if (ds != null) {
+                        try {
+                            ds.close();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    return true;
+                }
+            }
+            return false;
+        });
     }
 }
