@@ -1,101 +1,118 @@
 # 数据库导出工具 V2.0
 
-数据库导出工具 V2.0 是一款基于 Spring Boot 开发的通用数据库导出系统，支持达梦数据库和 MySQL 的数据导出，提供三种导出模式（SQL 查询、全表导出、模板导出），可生成 Excel 和 SQL 格式的导出文件，适用于企业级数据备份、数据分析和数据迁移场景。
+数据库导出工具 V2.0 是一款面向企业内网的数据库数据导出系统，专注于解决生产库到开发/测试环境的数据同步需求。系统提供灵活的数据导出能力和可复用的任务模板管理，支持高效、安全地导出大规模数据。
 
 ## 核心功能
 
 ### 数据导出
 
-- **SQL 查询导出**：用户自定义 SQL 语句，灵活筛选数据
-- **全表导出**：选择数据库表，一键导出全部数据
-- **模板导出**：使用预定义的导出模板，快速执行标准化导出
+- **自定义表名导出**：手动输入表名列表，支持顿号、逗号、换行分隔
+- **表勾选导出**：从数据库表列表中选择，支持搜索、全选、反选
+- **自定义SQL导出**：输入SELECT语句，每行一条，Sheet名自动提取表名
 
 ### 数据过滤策略
 
-- 条件过滤：支持等于、不等于、包含、范围等条件组合
-- 分页预览：导出前预览数据，防止误导出
-- 字段选择：自由选择需要导出的列
+- **时间范围过滤**：支持多个字段（顿号分隔），如 `DATE、DATA_TIME`，格式 `yyyy-MM-dd`
+- **自定义字段过滤**：支持等于/包含/范围三种方式，自动检查表中字段是否存在
+- **策略组合**：两种过滤策略可同时启用，优先级：先应用时间过滤，再应用字段过滤
 
 ### 模板管理
 
-- 创建、编辑、删除导出模板
-- 模板参数化：支持变量替换
-- 模板分类管理
+- 模板保存/加载/删除
+- 模板搜索（按名称模糊匹配）
+- 批量删除
+- 模板批量导入/导出（ZIP压缩格式）
 
 ### 导出格式
 
-- Excel 格式（.xlsx）：支持大数据量分 Sheet 导出
-- SQL 格式（.sql）：生成可执行的 INSERT 语句
+- Excel (.xlsx)：单文件多Sheet，每个表一个Sheet，SXSSF流式处理防OOM
+- INSERT SQL (.sql)：批量插入格式，默认1000条/批，Oracle风格INSERT ALL
+- 同时导出：同时生成两种格式，打包到同一压缩包
 
 ### 导出进度监控
 
 - 实时进度条显示
-- 后台异步导出，不阻塞操作
-- 导出完成后自动通知
+- 详细进度统计（当前表/已完成表/已导出行/总数据量）
+- 时间估算（已用时间/预计剩余时间）
+- 四级日志实时查看（INFO/SUCCESS/WARNING/ERROR）
+- 支持中途取消导出
 
 ### 连接池管理
 
-- HikariCP 高性能连接池
-- 多数据源配置支持
-- 连接健康检测
+- HikariCP高性能连接池
+- 连接池状态监控（active/total/idle/waiting连接数）
+- 最大并发连接数可配置
+- 达梦7/8 + MySQL 双数据库支持
 
-### 主题切换
+### 系统功能
 
-- 亮色主题 / 暗色主题
-- 一键切换，实时生效
-- 记忆用户偏好
+- 用户登录认证（Session管理，30分钟超时）
+- 亮色/暗色主题切换
+- 导出记录管理（下载/删除/过期清理）
 
 ## 技术架构
 
 | 组件 | 技术选型 | 说明 |
 |------|----------|------|
-| 基础框架 | Spring Boot 2.7.x | 核心框架，提供 Web 服务 |
-| 数据库连接池 | HikariCP | 高性能 JDBC 连接池 |
-| Excel 处理 | Apache POI | 处理 Excel 文件生成 |
-| 前端技术 | 原生 HTML/CSS/JS | 无框架依赖，轻量高效 |
+| 基础框架 | Spring Boot 2.7.x | 核心框架，提供Web服务 |
+| 数据库连接池 | HikariCP | 高性能JDBC连接池 |
+| Excel处理 | Apache POI 5.2.5 | SXSSF流式Excel，防内存溢出 |
+| 前端技术 | 原生HTML/CSS/JS | 无框架依赖，轻量高效 |
 | 数据库支持 | 达梦7/8、MySQL | 主流国产数据库兼容 |
-| 构建工具 | Maven | 项目构建和依赖管理 |
+| 构建工具 | Maven 3.6+ | 项目构建和依赖管理 |
 
 ## 项目结构
 
 ```
 db-export-tool/
-├── pom.xml                      # Maven 配置文件
+├── pom.xml                      # Maven配置文件
 ├── README.md                    # 项目文档
 ├── scripts/                     # 脚本目录
-│   ├── install.sh               # Linux 安装脚本
-│   ├── start.sh                 # Linux 启动脚本
-│   ├── install.bat              # Windows 安装脚本
-│   └── start.bat                # Windows 启动脚本
+│   ├── install.sh               # Linux安装脚本
+│   ├── start.sh                 # Linux启动脚本
+│   ├── install.bat              # Windows安装脚本
+│   └── start.bat                # Windows启动脚本
 ├── src/
-│   └── main/
-│       ├── java/
-│       │   └── com/
-│       │       └── dbexport/
-│       │           ├── DbExportApplication.java    # 应用入口
-│       │           ├── config/                     # 配置类
-│       │           │   └── DataSourceConfig.java
-│       │           ├── controller/                 # 控制器
-│       │           │   ├── ExportController.java
-│       │           │   └── TemplateController.java
-│       │           ├── service/                   # 业务逻辑
-│       │           │   ├── ExportService.java
-│       │           │   └── TemplateService.java
-│       │           ├── dao/                       # 数据访问
-│       │           │   └── DataSourceDao.java
-│       │           ├── model/                     # 数据模型
-│       │           │   ├── ExportTask.java
-│       │           │   └── ExportTemplate.java
-│       │           └── util/                      # 工具类
-│       │               └── ExcelUtil.java
-│       └── resources/
-│           ├── application.yml        # 应用配置
-│           ├── static/                # 静态资源
-│           │   ├── css/
-│           │   ├── js/
-│           │   └── index.html
-│           └── templates/             # 页面模板
-│               └── export.html
+│   ├── main/
+│   │   ├── java/com/dbexport/
+│   │   │   ├── DbExportApplication.java          # 应用入口
+│   │   │   ├── config/                           # 配置类
+│   │   │   │   ├── AsyncConfig.java              # 异步线程池配置
+│   │   │   │   ├── HikariPoolManager.java        # HikariCP连接池管理器
+│   │   │   │   ├── SecurityConfig.java           # 安全配置（Session拦截）
+│   │   │   │   └── WebConfig.java                # Web配置（CORS/Filter）
+│   │   │   ├── controller/                       # 控制器
+│   │   │   │   └── ExportController.java         # 主控制器（22个端点）
+│   │   │   ├── service/                          # 业务逻辑
+│   │   │   │   ├── ExportServiceImpl.java        # 导出服务
+│   │   │   │   └── TemplateService.java          # 模板服务
+│   │   │   ├── model/                            # 数据模型
+│   │   │   │   ├── DatabaseInfo.java             # 数据库连接信息
+│   │   │   │   ├── ExportConfig.java             # 导出配置
+│   │   │   │   ├── ExportProgress.java           # 导出进度
+│   │   │   │   ├── FieldFilterConfig.java        # 字段过滤配置
+│   │   │   │   ├── Template.java                 # 模板
+│   │   │   │   └── ApiResponse.java              # API响应封装
+│   │   │   └── util/                             # 工具类
+│   │   │       ├── SqlValidator.java             # SQL验证防注入
+│   │   │       ├── FileUtil.java                 # 文件工具
+│   │   │       └── JsonUtil.java                 # JSON工具
+│   │   └── resources/
+│   │       ├── application.yml                   # 应用配置
+│   │       ├── static/                           # 静态资源
+│   │       │   ├── css/style.css                 # 主样式（深色/浅色主题）
+│   │       │   └── js/main.js                    # 前端交互逻辑
+│   │       └── templates/                        # 页面模板
+│   │           ├── login.html                    # 登录页
+│   │           └── index.html                    # 主页面
+│   └── test/
+│       └── java/com/dbexport/                    # 单元测试（77个测试用例）
+│           ├── DbExportApplicationTests.java
+│           ├── model/
+│           ├── util/
+│           ├── config/
+│           ├── controller/
+│           └── service/
 ├── exports/                     # 导出文件目录
 ├── templates/                   # 导出模板目录
 ├── logs/                        # 日志目录
@@ -104,279 +121,265 @@ db-export-tool/
 
 ## 环境要求
 
-### 运行环境
-
-- JDK 8 或更高版本
-- Maven 3.6 或更高版本
-
-### 支持的数据库
-
-- 达梦数据库 7.x / 8.x
-- MySQL 5.7 / 8.x
-
-### 磁盘空间
-
-- 至少 500MB 可用空间
-- 根据导出数据量预估存储需求
+- **JDK**: 1.8 或更高
+- **Maven**: 3.6 或更高
+- **浏览器**: Chrome/Edge/Firefox（推荐最新版）
+- **目标数据库**: 达梦7/8 或 MySQL 5.7+
 
 ## 安装部署
 
-### Linux 环境
-
-#### 步骤 1：准备环境
-
-确保已安装 JDK 和 Maven：
+### Linux 系统
 
 ```bash
-java -version
-mvn -version
+# 1. 安装项目
+cd scripts
+chmod +x install.sh
+./install.sh
+
+# 2. 启动服务
+chmod +x start.sh
+./start.sh
+
+# 服务启动后，访问 http://localhost:8080
 ```
 
-#### 步骤 2：安装
+### Windows 系统
+
+```batch
+# 1. 安装项目
+cd scripts
+install.bat
+
+# 2. 启动服务
+start.bat
+
+# 服务启动后，访问 http://localhost:8080
+```
+
+### 手动运行
 
 ```bash
-cd /path/to/db-export-tool
-chmod +x scripts/install.sh
-./scripts/install.sh
+# 编译打包
+mvn clean package -DskipTests
+
+# 启动服务
+java -Xms256m -Xmx512m -jar target/db-export-tool.jar
 ```
 
-安装脚本将执行以下操作：
-- 检查 Java 和 Maven 环境
-- 创建必要的目录结构
-- 编译项目生成 JAR 文件
+### 默认账号
 
-#### 步骤 3：启动服务
-
-```bash
-./scripts/start.sh
-```
-
-#### 步骤 4：访问服务
-
-打开浏览器访问：`http://localhost:8080`
-
-默认登录账号：`admin` / `123456`
-
-### Windows 环境
-
-#### 步骤 1：准备环境
-
-确保已安装 JDK 和 Maven，并在命令行中可用。
-
-#### 步骤 2：安装
-
-双击运行 `scripts\install.bat`，或以管理员身份打开命令提示符执行：
-
-```cmd
-cd /d C:\path\to\db-export-tool
-scripts\install.bat
-```
-
-#### 步骤 3：启动服务
-
-双击运行 `scripts\start.bat`，或以管理员身份打开命令提示符执行：
-
-```cmd
-scripts\start.bat
-```
-
-#### 步骤 4：访问服务
-
-打开浏览器访问：`http://localhost:8080`
-
-默认登录账号：`admin` / `123456`
+- **用户名**: admin
+- **密码**: 123456
 
 ## 使用说明
 
-### 登录系统
+### 1. 登录系统
 
-1. 访问 `http://localhost:8080`
-2. 输入默认账号 `admin` 和密码 `123456`
-3. 点击登录按钮进入主界面
+访问 http://localhost:8080，输入账号密码登录。登录成功后进入主页面。
 
-### 三种导出模式
+### 2. 连接数据库
 
-#### 模式一：SQL 查询导出
+在"数据导出"Tab中，填写数据库连接信息：
 
-1. 在左侧菜单选择「SQL 导出」
-2. 在编辑器中输入 SQL 查询语句
-3. 点击「预览」查看查询结果
-4. 选择导出格式（Excel/SQL）
-5. 点击「导出」开始导出任务
-6. 导出完成后自动下载文件
+- 数据库类型：达梦 DM 或 MySQL
+- 主机地址：数据库服务器IP/域名
+- 端口：达梦默认 5236，MySQL默认 3306
+- 数据库名：目标数据库名称
+- 用户名/密码：数据库账号密码
 
-#### 模式二：全表导出
+点击"测试连接"验证连接是否正常，确认无误后点击"连接数据库"。
 
-1. 在左侧菜单选择「全表导出」
-2. 从下拉列表中选择目标数据库表
-3. 系统自动加载表结构和数据预览
-4. 选择需要导出的列
-5. 设置导出格式和分页参数
-6. 点击「导出」开始导出任务
+### 3. 选择导出模式
 
-#### 模式三：模板导出
+#### 自定义表名导出
 
-1. 在左侧菜单选择「模板导出」
-2. 从模板列表中选择目标模板
-3. 根据模板要求填写参数值
-4. 点击「执行」使用模板导出数据
-5. 导出完成后自动下载文件
+在"自定义表名"输入框中输入表名，支持：
+- 顿号分隔：`TABLE1、TABLE2、TABLE3`
+- 逗号分隔：`TABLE1,TABLE2,TABLE3`
+- 换行分隔：每行一个表名
 
-### 过滤策略
+#### 表勾选导出
 
-在导出设置页面可以配置以下过滤条件：
+切换到"表勾选"Tab，系统自动加载数据库表列表：
+- 支持搜索表名
+- 支持全选/反选
+- 显示每个表的记录数
 
-| 条件类型 | 说明 | 示例 |
-|----------|------|------|
-| 等于 | 字段值完全匹配 | status = 'active' |
-| 不等于 | 字段值不匹配 | status != 'deleted' |
-| 包含 | 字段值包含字符串 | name LIKE '%张%' |
-| 范围 | 字段值在区间内 | age BETWEEN 18 AND 60 |
-| 开头 | 字段值以字符串开头 | code LIKE 'EMP%' |
-| 为空 | 字段值为空 | email IS NULL |
+#### 自定义SQL导出
 
-### 模板管理
+切换到"自定义SQL"Tab，输入SELECT语句，每行一条：
+```sql
+SELECT * FROM TABLE1 WHERE STATUS = 'ACTIVE'
+SELECT ID, NAME FROM TABLE2
+```
+点击"验证SQL"可检查SQL语法是否安全。
 
-1. 进入「模板管理」页面
-2. 点击「新建模板」创建模板
-3. 填写模板名称、描述和 SQL 语句
-4. 使用 `${param}` 语法定义参数占位符
-5. 保存模板后可在导出时调用
+### 4. 配置数据过滤（可选）
 
-### 导出记录
+#### 时间范围过滤
 
-所有导出记录保存在「导出记录」页面：
-- 查看历史导出任务
-- 下载之前导出的文件
-- 删除不需要的导出记录
+勾选"时间范围过滤"，配置：
+- 字段名：多个字段用顿号分隔，如 `DATE、DATA_TIME`
+- 开始/结束日期：`yyyy-MM-dd` 格式
+
+#### 自定义字段过滤
+
+勾选"自定义字段过滤"，配置：
+- 字段名：如 `CASE_ID`
+- 过滤方式：等于/包含/范围
+- 参数值：
+  - 等于：单个值，如 `111`
+  - 包含：逗号分隔，如 `'111','222','333'`
+  - 范围：连字符分隔，如 `100-200`
+
+### 5. 配置导出选项
+
+- 导出格式：勾选Excel和/或SQL
+- 最大并发连接数：1-10之间，默认为5
+
+### 6. 保存为模板（可选）
+
+点击"保存为模板"，输入模板名称和描述，配置将保存为模板供后续复用。
+
+### 7. 开始导出
+
+点击"🚀 开始导出"，系统进入导出进度监控页面，显示：
+- 总进度条
+- 当前导出表
+- 已完成表数/总表数
+- 已导出数据行数
+- 已用时间/预计剩余时间
+- 实时日志
+
+导出完成后，自动打包为ZIP文件，可在"导出记录"Tab中下载。
+
+### 8. 模板管理
+
+在"模板管理"Tab中：
+- 查看所有模板
+- 加载模板（自动填充导出配置）
+- 删除模板
+- 批量导出模板为ZIP
+- 导入ZIP模板文件
+
+### 9. 导出记录
+
+在"导出记录"Tab中：
+- 查看历史导出记录
+- 下载ZIP文件
+- 删除记录
+- 清理过期记录（按天数）
 
 ## 配置文件详解
 
-配置文件位于 `src/main/resources/application.yml`：
+`application.yml` 配置项：
 
 ```yaml
 spring:
   application:
-    name: db-export-tool  # 应用名称
-  
-  datasource:
-    driver-class-name: dm.jdbc.driver.DmDriver  # 达梦驱动
-    url: jdbc:dm://localhost:5236  # 数据库连接地址
-    username: SYSDBA  # 数据库用户名
-    password: SYSDBA  # 数据库密码
-    hikari:
-      maximum-pool-size: 10  # 最大连接数
-      minimum-idle: 5  # 最小空闲连接
-      connection-timeout: 30000  # 连接超时时间（毫秒）
-      idle-timeout: 600000  # 空闲超时时间（毫秒）
-      max-lifetime: 1800000  # 最大生命周期（毫秒）
-      pool-name: DbExportHikariCP  # 连接池名称
-  
+    name: db-export-tool
   servlet:
     multipart:
-      enabled: true  # 启用文件上传
-      max-file-size: 100MB  # 单个文件最大大小
-      max-request-size: 200MB  # 请求最大大小
+      max-file-size: 100MB      # 上传文件最大大小
+      max-request-size: 100MB
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    cache: false
 
 server:
-  port: 8080  # 服务端口
-  address: 0.0.0.0  # 监听地址
+  port: 8080                     # 服务端口
+  servlet:
+    session:
+      timeout: 1800s            # Session超时时间（30分钟）
 
-export:
-  path: ./exports  # 导出文件存储路径
-  temp: ./temp  # 临时文件路径
-  max-rows: 1000000  # 单次导出最大行数
-  timeout: 3600  # 导出超时时间（秒）
-  chunk-size: 50000  # Excel 分片大小
+app:
+  login:
+    username: admin              # 默认登录用户名
+    password: "123456"          # 默认登录密码
+  export:
+    thread:
+      core: 4                   # 导出线程池核心线程数
+      max: 8                    # 导出线程池最大线程数
+    batch:
+      size: 1000                # SQL批量插入大小
+    fetch-size: 1000            # ResultSet FetchSize
+    storage:
+      path: ./exports           # 导出文件存储路径
+      temp: ./temp              # 临时文件路径
+    timeout: 3600               # 导出超时时间（秒）
+  template:
+    storage:
+      path: ./templates         # 模板存储路径
 
 logging:
   level:
-    root: INFO  # 日志级别
-    com.dbexport: DEBUG  # 应用包日志级别
+    com.dbexport: DEBUG
   file:
-    name: ./logs/application.log  # 日志文件路径
-    max-size: 10MB  # 单个日志文件大小
-    max-history: 30  # 日志保留天数
-```
-
-### 配置项说明
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| spring.datasource.driver-class-name | dm.jdbc.driver.DmDriver | 数据库驱动类名 |
-| spring.datasource.url | jdbc:dm://localhost:5236 | JDBC 连接 URL |
-| spring.datasource.username | SYSDBA | 数据库用户名 |
-| spring.datasource.password | - | 数据库密码 |
-| spring.datasource.hikari.maximum-pool-size | 10 | 连接池最大连接数 |
-| spring.datasource.hikari.minimum-idle | 5 | 连接池最小空闲连接 |
-| spring.datasource.hikari.connection-timeout | 30000 | 获取连接超时时间（毫秒） |
-| server.port | 8080 | HTTP 服务端口 |
-| export.path | ./exports | 导出文件保存目录 |
-| export.max-rows | 1000000 | 单次导出最大记录数 |
-| export.chunk-size | 50000 | Excel 每个 Sheet 的行数 |
-
-### 切换数据库
-
-如需使用 MySQL，修改配置如下：
-
-```yaml
-spring:
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/your_database?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: your_password
+    path: ./logs                # 日志存储路径
+    name: db-export-tool.log    # 日志文件名
 ```
 
 ## 注意事项
 
 ### 达梦数据库驱动
 
-- 首次使用需确保达梦数据库驱动 JAR 文件已放置在正确位置
-- 驱动文件路径：`src/main/resources/lib/dm-jdbc-driver.jar`
-- 如使用 Maven 构建，驱动依赖会自动下载
+当前项目默认包含MySQL驱动，如需连接达梦数据库，请将达梦驱动JAR（`DmJdbcDriver18.jar` 或 `DmJdbcDriver-7.0.12.jar`）放到项目目录，并在 `pom.xml` 中添加依赖（或直接放到运行时classpath）：
 
-### 连接池配置
+```xml
+<dependency>
+    <groupId>com.dameng</groupId>
+    <artifactId>DmJdbcDriver</artifactId>
+    <version>8.1.2.192</version>
+    <scope>system</scope>
+    <systemPath>${project.basedir}/lib/DmJdbcDriver18.jar</systemPath>
+</dependency>
+```
 
-- 根据服务器硬件配置调整连接池参数
-- 高并发场景建议 `maximum-pool-size` 设置为 CPU 核心数的 2-3 倍
-- 生产环境建议设置合理的 `connection-timeout` 防止连接泄漏
+### 性能注意事项
 
-### 数据安全
+- 大数据量导出时，建议使用较低的并发连接数（2-4）
+- 大表导出会自动启用流式处理，避免内存溢出
+- 导出时间过长时，可以随时取消，不影响已完成部分
 
-- 生产环境务必修改默认登录密码
-- 敏感配置项（如数据库密码）建议使用环境变量或配置中心管理
-- 定期清理 `exports` 和 `logs` 目录释放磁盘空间
-- 导出文件包含敏感数据，操作完毕后及时下载并删除服务器端文件
+### 安全注意事项
 
-### 性能优化
-
-- 大数据量导出建议使用分页导出，避免内存溢出
-- 频繁导出的表建议建立合适的索引
-- 导出过程中避免执行其他 DDL 操作
-- 监控服务器 CPU 和内存使用情况
+- 禁止在生产环境使用默认密码
+- 建议在内网部署，不暴露到公网
+- 自定义SQL模式仅允许SELECT语句，系统会自动验证并拦截危险语句
+- 导出的文件包含数据，请注意保管
+- 建议定期清理exports目录下的过期文件
 
 ### 常见问题
 
-**Q: 启动失败，提示端口被占用？**
-A: 修改 `application.yml` 中的 `server.port` 为其他端口，如 8081。
-
-**Q: 导出文件时提示内存不足？**
-A: 启动脚本中添加 JVM 参数 `-Xmx1024m` 增加堆内存大小。
-
 **Q: 连接达梦数据库失败？**
-A: 检查达梦数据库服务是否启动，确认 IP、端口、用户名密码配置正确。
+
+A: 检查端口是否正确（默认5236），驱动是否在classpath中，网络是否通畅。
+
+**Q: 导出Excel时内存溢出？**
+
+A: 系统已使用SXSSF流式处理，理论上不会OOM。如仍出现，减少并发连接数，或分批导出。
+
+**Q: 时间过滤字段不存在？**
+
+A: 系统会自动检查表中是否存在该字段，不存在时该策略不生效，导出全量数据。
+
+**Q: 如何备份模板？**
+
+A: 使用"导出选中"功能，将选中的模板导出为ZIP文件。
 
 ## 后续规划
 
-- **定时调度**：支持配置定时导出任务，自动执行数据导出
-- **增量导出**：支持基于时间戳或自增 ID 的增量数据导出
-- **数据脱敏**：内置敏感字段（如手机号、身份证）自动脱敏功能
-- **多数据库支持**：扩展支持 PostgreSQL、Oracle、SQL Server 等数据库
-- **云存储集成**：支持将导出文件直接上传至 S3、OSS、七牛云等对象存储
-- **邮件通知**：导出完成后自动发送邮件通知
-- **操作审计**：记录所有导出操作，支持审计查询和报表导出
+- [ ] 定时导出调度：支持按时间自动执行导出
+- [ ] 增量导出：基于时间戳或增量标识只导出新增/变更数据
+- [ ] 数据脱敏：导出时对敏感字段进行脱敏处理
+- [ ] 多数据源配置：预配置多个数据源，快速切换
+- [ ] 云存储：支持直接上传到阿里云OSS、腾讯云COS等
+- [ ] 邮件通知：导出完成后发送邮件通知
+- [ ] 操作审计：记录所有用户操作和导出日志
+- [ ] 权限管理：细粒度权限控制，不同用户不同权限
 
-## 许可证
+---
 
-本项目仅供学习和企业内部使用，如需商业授权请联系开发者。
+**版本历史**:
+- V2.0: 2025年5月，全新架构，支持双数据库，优化性能

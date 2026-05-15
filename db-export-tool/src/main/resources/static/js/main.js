@@ -146,6 +146,12 @@
                 document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.add('hidden'); });
                 $('tab-' + tabName).classList.remove('hidden');
                 state.currentTab = tabName;
+                
+                // 如果正在导出，确保轮询继续运行
+                if (state.currentTaskId && (state.currentExportStatus && (state.currentExportStatus.status === 'RUNNING' || state.currentExportStatus.status === 'PENDING'))) {
+                    if (!state.exportPollTimer) pollExportProgress();
+                }
+                
                 if (tabName === 'templates') loadTemplateList();
                 else if (tabName === 'records') loadRecordList();
             };

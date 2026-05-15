@@ -83,6 +83,16 @@
             <version>8.0.33</version>
         </dependency>
 
+        <!-- 达梦数据库驱动（如需使用，请取消注释并确保DmJdbcDriver18.jar在lib目录下）
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver</artifactId>
+            <version>8.1.2.192</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/DmJdbcDriver18.jar</systemPath>
+        </dependency>
+        -->
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

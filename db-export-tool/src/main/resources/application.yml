@@ -15,6 +15,8 @@ server:
   servlet:
     session:
       timeout: 1800s
+  tomcat:
+    connection-timeout: 30000ms
 
 app:
   login:
