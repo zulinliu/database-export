@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库导出工具 V2.0</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="top-bar">
+            <div class="logo">
+                <span>📊</span>
+                <span>数据库导出工具</span>
+            </div>
+            <div class="top-bar-right">
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot disconnected"></span>
+                    <span class="status-text">未连接</span>
+                </div>
+                <button id="themeToggle" class="theme-toggle" aria-label="切换主题">
+                    <svg id="sunIcon" class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    <svg id="moonIcon" class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+                <button id="logoutBtn" class="btn btn-secondary btn-sm">退出</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <nav class="nav-tabs">
+                <div class="nav-tab active" data-tab="export">数据导出</div>
+                <div class="nav-tab" data-tab="templates">模板管理</div>
+                <div class="nav-tab" data-tab="records">导出记录</div>
+            </nav>
+
+            <div id="tab-export" class="tab-content">
+                <div class="card">
+                    <div class="card-title">数据库连接</div>
+                    <div class="form-row">
+                        <div class="form-group" style="min-width:120px">
+                            <label class="form-label">数据库类型</label>
+                            <select id="dbType" class="form-select">
+                                <option value="dm">达梦 DM</option>
+                                <option value="mysql">MySQL</option>
+                                <option value="custom">自定义</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label class="form-label">主机地址</label>
+                            <input type="text" id="dbHost" class="form-input" placeholder="如: 192.168.1.100">
+                        </div>
+                        <div class="form-group" style="min-width:100px">
+                            <label class="form-label">端口</label>
+                            <input type="number" id="dbPort" class="form-input" placeholder="5236" value="5236">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label class="form-label">数据库名</label>
+                            <input type="text" id="dbName" class="form-input" placeholder="如: SYSDBA">
+                        </div>
+                        <div class="form-group" style="min-width:120px">
+                            <label class="form-label">用户名</label>
+                            <input type="text" id="dbUser" class="form-input" placeholder="用户名">
+                        </div>
+                        <div class="form-group" style="min-width:120px">
+                            <label class="form-label">密码</label>
+                            <input type="password" id="dbPass" class="form-input" placeholder="密码">
+                        </div>
+                    </div>
+                    <div class="form-row" style="justify-content:flex-end;margin-top:12px">
+                        <button id="testConnBtn" class="btn btn-secondary">测试连接</button>
+                        <button id="connectBtn" class="btn btn-primary">连接数据库</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">导出模式</div>
+                    <div class="tabs">
+                        <div class="tab active" data-export-type="customTables">自定义表名</div>
+                        <div class="tab" data-export-type="tableSelect">表勾选</div>
+                        <div class="tab" data-export-type="customSql">自定义SQL</div>
+                    </div>
+                    <div id="exportType-customTables" class="export-type-content">
+                        <textarea id="customTablesInput" class="form-textarea" placeholder="输入表名，支持顿号（）、逗号（,）、换行分隔&#10;示例：&#10;TABLE1、TABLE2、TABLE3&#10;或&#10;TABLE1,&#10;TABLE2,&#10;TABLE3"></textarea>
+                    </div>
+                    <div id="exportType-tableSelect" class="export-type-content hidden">
+                        <div class="form-row" style="margin-bottom:12px">
+                            <input type="text" id="tableSearchInput" class="form-input" placeholder="搜索表名" style="max-width:300px">
+                            <button id="selectAllTablesBtn" class="btn btn-secondary btn-sm">全选</button>
+                            <button id="deselectAllTablesBtn" class="btn btn-secondary btn-sm">反选</button>
+                            <span id="selectedTableCount" style="color:var(--text-secondary);font-size:13px;line-height:36px">已选择: 0 个表</span>
+                        </div>
+                        <div id="tableListContainer" class="table-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:12px">
+                            <div class="empty-state" style="padding:40px">
+                                <span class="empty-state-icon">📋</span>
+                                <div class="empty-state-title">请先连接数据库</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="exportType-customSql" class="export-type-content hidden">
+                        <textarea id="customSqlInput" class="form-textarea" placeholder="每行输入一条SELECT语句&#10;示例：&#10;SELECT * FROM TABLE1 WHERE STATUS = 'ACTIVE'&#10;SELECT ID, NAME FROM TABLE2"></textarea>
+                        <div style="margin-top:8px">
+                            <button id="validateSqlBtn" class="btn btn-secondary btn-sm">验证SQL</button>
+                            <div id="sqlValidationResult" class="sql-validation-result" style="margin-top:8px"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">数据过滤策略</div>
+                    <div class="form-row" style="align-items:center;margin-bottom:16px">
+                        <div style="display:flex;align-items:center;gap:12px">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="enableTimeFilter">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span style="font-weight:500">时间范围过滤</span>
+                        </div>
+                    </div>
+                    <div id="timeFilterPanel" class="filter-panel hidden" style="background:var(--bg-input);padding:16px;border-radius:8px;margin-bottom:16px">
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1">
+                                <label class="form-label">时间字段名（支持多个，顿号分隔）</label>
+                                <input type="text" id="timeFieldNames" class="form-input" placeholder="如: DATE、DATA_TIME">
+                            </div>
+                            <div class="form-group" style="min-width:160px">
+                                <label class="form-label">开始日期</label>
+                                <input type="date" id="startDate" class="form-input">
+                            </div>
+                            <div class="form-group" style="min-width:160px">
+                                <label class="form-label">结束日期</label>
+                                <input type="date" id="endDate" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row" style="align-items:center;margin-bottom:16px">
+                        <div style="display:flex;align-items:center;gap:12px">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="enableFieldFilter">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span style="font-weight:500">自定义字段过滤</span>
+                        </div>
+                    </div>
+                    <div id="fieldFilterPanel" class="filter-panel hidden" style="background:var(--bg-input);padding:16px;border-radius:8px">
+                        <div class="form-row">
+                            <div class="form-group" style="min-width:150px">
+                                <label class="form-label">字段名</label>
+                                <input type="text" id="fieldFilterName" class="form-input" placeholder="如: CASE_ID">
+                            </div>
+                            <div class="form-group" style="min-width:120px">
+                                <label class="form-label">过滤方式</label>
+                                <select id="fieldFilterType" class="form-select">
+                                    <option value="EQUAL">等于</option>
+                                    <option value="IN">包含</option>
+                                    <option value="RANGE">范围</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex:1">
+                                <label class="form-label" id="filterValueLabel">参数值</label>
+                                <input type="text" id="fieldFilterValue" class="form-input" placeholder="请输入参数值">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">导出配置</div>
+                    <div class="form-row" style="align-items:center;margin-bottom:16px">
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label" style="margin-bottom:8px;display:block">导出格式</label>
+                            <div style="display:flex;gap:16px">
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                                    <input type="checkbox" id="exportExcel" checked> Excel (.xlsx)
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                                    <input type="checkbox" id="exportSql" checked> INSERT SQL (.sql)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="min-width:200px">
+                            <label class="form-label">最大并发连接数</label>
+                            <select id="maxConnections" class="form-select">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5" selected>5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row" style="justify-content:space-between;margin-top:8px">
+                    <button id="saveTemplateBtn" class="btn btn-secondary">💾 保存为模板</button>
+                    <button id="startExportBtn" class="btn btn-primary btn-lg">🚀 开始导出</button>
+                </div>
+
+                <div id="exportProgressPanel" class="card hidden" style="margin-top:16px">
+                    <div class="card-title">导出进度</div>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill" style="width:0%"></div>
+                        </div>
+                        <div id="progressText" class="progress-text" style="text-align:center;margin-top:8px">0%</div>
+                    </div>
+                    <div class="progress-stats" style="margin-top:12px">
+                        <span id="currentTableInfo">当前表: -</span>
+                        <span id="overallProgress">已完成: 0/0 个表</span>
+                        <span id="totalRowsInfo">总数据: 0 条</span>
+                    </div>
+                    <div class="progress-stats" style="margin-top:4px">
+                        <span id="elapsedTime">已用时: 00:00</span>
+                        <span id="estimatedTime">预计剩余: --:--</span>
+                    </div>
+                    <div id="logViewer" class="log-viewer" style="margin-top:12px;max-height:180px">
+                        <div class="log-entry"><span class="log-time">[--:--:--]</span><span class="log-info">等待开始导出...</span></div>
+                    </div>
+                    <div style="text-align:center;margin-top:12px">
+                        <button id="cancelExportBtn" class="btn btn-danger">取消导出</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-templates" class="tab-content hidden">
+                <div class="card">
+                    <div class="card-title">模板管理</div>
+                    <div class="form-row" style="margin-bottom:16px">
+                        <input type="text" id="templateSearchInput" class="form-input" placeholder="搜索模板" style="max-width:300px">
+                        <button id="importTemplateBtn" class="btn btn-secondary">📥 导入模板</button>
+                        <button id="exportSelectedTemplatesBtn" class="btn btn-secondary">📤 导出选中</button>
+                    </div>
+                    <div id="templateListContainer">
+                        <div class="empty-state">
+                            <span class="empty-state-icon">📋</span>
+                            <div class="empty-state-title">暂无模板</div>
+                            <div class="empty-state-desc">您还没有保存任何模板</div>
+                        </div>
+                    </div>
+                    <div id="templatePagination" class="pagination hidden">
+                        <div class="pagination-info">每页 <select id="templatePageSize" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px"><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select> 条</div>
+                        <div class="pagination-btns" id="templatePaginationBtns"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-records" class="tab-content hidden">
+                <div class="card">
+                    <div class="card-title">导出记录</div>
+                    <div class="form-row" style="margin-bottom:16px">
+                        <button id="cleanOldRecordsBtn" class="btn btn-secondary btn-sm">清空过期记录</button>
+                        <button id="deleteSelectedRecordsBtn" class="btn btn-danger btn-sm">删除选中</button>
+                    </div>
+                    <div id="recordListContainer">
+                        <div class="empty-state">
+                            <span class="empty-state-icon">📦</span>
+                            <div class="empty-state-title">暂无导出记录</div>
+                            <div class="empty-state-desc">您还没有导出过数据</div>
+                        </div>
+                    </div>
+                    <div id="recordPagination" class="pagination hidden">
+                        <div class="pagination-info">每页 <select id="recordPageSize" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px"><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select> 条</div>
+                        <div class="pagination-btns" id="recordPaginationBtns"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal" id="modalDialog">
+            <div class="modal-header">
+                <h3 id="modalTitle">标题</h3>
+                <button class="modal-close" id="modalClose">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <input type="file" id="importFileInput" accept=".zip" style="display:none">
+
+    <script src="/js/main.js"></script>
+</body>
+</html>
