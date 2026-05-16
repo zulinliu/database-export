@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库导出工具</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="logo">📊 数据库导出工具</div>
+        <div class="header-right">
+            <span id="databaseStatus" style="color:var(--text-muted); margin-right:16px;">
+                <span style="color:var(--text-muted);">○</span> 未连接数据库
+            </span>
+            <span id="userName" style="margin-right:16px;"></span>
+            <button id="themeToggle" class="btn btn-secondary" style="padding:8px 12px;">🌙</button>
+            <button id="logoutBtn" class="btn btn-secondary" style="padding:8px 12px;">退出</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="nav mb-24">
+            <div class="nav-item active" data-page="export">数据导出</div>
+            <div class="nav-item" data-page="templates">模板管理</div>
+            <div class="nav-item" data-page="history">导出记录</div>
+        </div>
+        
+        <!-- 数据导出页面 -->
+        <div id="exportPage" class="page-content">
+            <!-- 数据库连接 -->
+            <div class="card mb-24">
+                <h3 style="margin-bottom:16px;">数据库连接</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="label">数据库类型</label>
+                        <select id="dbType" class="input">
+                            <option value="mysql">MySQL</option>
+                            <option value="dm">达梦</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">主机地址</label>
+                        <input type="text" id="dbHost" class="input" placeholder="localhost">
+                    </div>
+                    <div class="form-group">
+                        <label class="label">端口</label>
+                        <input type="number" id="dbPort" class="input" placeholder="3306" value="3306">
+                    </div>
+                    <div class="form-group">
+                        <label class="label">数据库名</label>
+                        <input type="text" id="dbName" class="input" placeholder="database_name">
+                    </div>
+                    <div class="form-group">
+                        <label class="label">用户名</label>
+                        <input type="text" id="dbUsername" class="input" placeholder="username">
+                    </div>
+                    <div class="form-group">
+                        <label class="label">密码</label>
+                        <input type="password" id="dbPassword" class="input" placeholder="password">
+                    </div>
+                </div>
+                <div class="flex gap-8">
+                    <button id="testConnectionBtn" class="btn btn-secondary">测试连接</button>
+                    <button id="connectDatabaseBtn" class="btn btn-primary">连接数据库</button>
+                </div>
+            </div>
+            
+            <!-- 导出方式 -->
+            <div class="card mb-24">
+                <h3 style="margin-bottom:16px;">导出方式</h3>
+                <div class="tabs">
+                    <div class="tab export-type-tab active" data-type="customTables">自定义表名</div>
+                    <div class="tab export-type-tab" data-type="tableSelect">表勾选</div>
+                    <div class="tab export-type-tab" data-type="customSql">自定义SQL</div>
+                </div>
+                
+                <div id="customTablesContent" class="export-type-content">
+                    <div class="form-group mt-16">
+                        <label class="label">表名列表</label>
+                        <textarea id="tablesInput" class="input" rows="6" placeholder="支持逗号、顿号、换行分隔表名"></textarea>
+                    </div>
+                </div>
+                
+                <div id="tableSelectContent" class="export-type-content" style="display:none;">
+                    <div class="form-group mt-16">
+                        <button id="selectTablesBtn" class="btn btn-secondary">选择数据表</button>
+                        <textarea id="tablesInput" class="input mt-8" rows="6" readonly placeholder="点击上方按钮选择表"></textarea>
+                    </div>
+                </div>
+                
+                <div id="customSqlContent" class="export-type-content" style="display:none;">
+                    <div class="form-group mt-16">
+                        <label class="label">SQL语句</label>
+                        <textarea id="customSqlInput" class="input" rows="8" placeholder="每行一条SELECT语句"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 数据过滤 -->
+            <div class="card mb-24">
+                <h3 style="margin-bottom:16px;">数据过滤</h3>
+                
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enableTimeFilter">
+                        <label for="enableTimeFilter" style="margin-bottom:0;">启用时间过滤</label>
+                    </div>
+                </div>
+                
+                <div id="timeFilterSection" style="display:none;">
+                    <div class="form-row mt-16">
+                        <div class="form-group">
+                            <label class="label">时间字段名</label>
+                            <input type="text" id="timeFieldNames" class="input" value="create_time,update_time" placeholder="多个字段用逗号分隔">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">开始日期</label>
+                            <input type="date" id="startDate" class="input">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">结束日期</label>
+                            <input type="date" id="endDate" class="input">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group mt-16">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enableFieldFilter">
+                        <label for="enableFieldFilter" style="margin-bottom:0;">启用字段过滤</label>
+                    </div>
+                </div>
+                
+                <div id="fieldFilterSection" style="display:none;">
+                    <div class="form-row mt-16">
+                        <div class="form-group">
+                            <label class="label">字段名</label>
+                            <input type="text" id="fieldName" class="input" placeholder="field_name">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">过滤方式</label>
+                            <select id="fieldFilterType" class="input">
+                                <option value="equal">等于</option>
+                                <option value="in">包含</option>
+                                <option value="range">范围</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="label">参数值</label>
+                            <input type="text" id="fieldFilterValue" class="input" placeholder="过滤值">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 导出配置 -->
+            <div class="card mb-24">
+                <h3 style="margin-bottom:16px;">导出配置</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="label">导出格式</label>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="checkbox" id="formatExcel" checked>
+                                <label for="formatExcel">Excel</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="checkbox" id="formatSql" checked>
+                                <label for="formatSql">SQL</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">最大并发连接数</label>
+                        <input type="number" id="maxConnections" class="input" value="5" min="1" max="10">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="flex gap-8">
+                <button id="saveTemplateBtn" class="btn btn-secondary">💾 保存为模板</button>
+                <button id="loadTemplateBtn" class="btn btn-secondary">📋 加载模板</button>
+                <button id="startExportBtn" class="btn btn-primary">🚀 开始导出</button>
+            </div>
+        </div>
+        
+        <!-- 模板管理页面 -->
+        <div id="templatesPage" class="page-content" style="display:none;">
+            <div class="card">
+                <h3 style="margin-bottom:16px;">模板管理</h3>
+                <div id="templateList">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 导出记录页面 -->
+        <div id="historyPage" class="page-content" style="display:none;">
+            <div class="card">
+                <h3 style="margin-bottom:16px;">导出记录</h3>
+                <div id="exportFileList">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

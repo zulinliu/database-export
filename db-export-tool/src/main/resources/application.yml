@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: db-export-tool
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 1800s
+
+app:
+  export-path: ./exports
+  temp-path: ./temp
+  template-path: ./templates
+  batch-size: 1000
+  fetch-size: 1000
+  export-timeout: 3600
+
+security:
+  default:
+    username: admin
+    password: "123456"
+
+logging:
+  level:
+    com.dbexport: DEBUG
+  file:
+    path: ./logs
+    name: ./logs/db-export-tool.log
