@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: db-export-tool
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 1800s
+
+export:
+  thread:
+    core: 4
+    max: 8
+  batch:
+    size: 1000
+  fetch-size: 1000
+  storage:
+    path: ./exports
+    temp: ./temp
+  timeout: 3600
+
+template:
+  storage:
+    path: ./templates
+
+security:
+  default:
+    username: admin
+    password: "123456"
+  session:
+    timeout: 1800
+
+logging:
+  level:
+    com.dbexport: DEBUG
+  file:
+    path: ./logs
+    name: db-export-tool.log
