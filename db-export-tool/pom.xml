@@ -23,7 +23,16 @@
         <java.version>1.8</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <poi.version>5.2.5</poi.version>
+        <dameng.version>8.1.2.192</dameng.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>dameng</id>
+            <name>Dameng Maven Repository</name>
+            <url>https://maven.dameng.com/repository/public</url>
+        </repository>
+    </repositories>
 
     <dependencies>
         <!-- Spring Boot Web -->
@@ -64,16 +73,13 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- 达梦驱动 (可选，用户可自行添加) -->
-        <!--
+        <!-- 达梦驱动 -->
         <dependency>
             <groupId>com.dameng</groupId>
             <artifactId>DmJdbcDriver18</artifactId>
-            <version>8.1.2.192</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/DmJdbcDriver18.jar</systemPath>
+            <version>${dameng.version}</version>
+            <scope>runtime</scope>
         </dependency>
-        -->
 
         <!-- Jackson JSON处理 -->
         <dependency>
