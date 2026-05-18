@@ -217,6 +217,7 @@ async function validateSql() {
 /* ====== Export ====== */
 function buildExportConfig() {
     const format = document.querySelector('input[name="exportFormat"]:checked').value;
+    const dbInfo = getDbInfo();
     const config = {
         exportType: currentMode,
         tables: currentMode === 'customTables' ? document.getElementById('tableNames').value : '',
@@ -228,7 +229,15 @@ function buildExportConfig() {
         enableFieldFilter: document.getElementById('enableFieldFilter').checked,
         fieldFilter: null,
         exportFormats: format,
-        maxConnections: parseInt(document.getElementById('maxConnections').value) || 5
+        maxConnections: parseInt(document.getElementById('maxConnections').value) || 5,
+        dbType: dbInfo.type,
+        dbHost: dbInfo.host,
+        dbPort: dbInfo.port,
+        dbName: dbInfo.databaseName,
+        dbUser: dbInfo.username,
+        dbPass: dbInfo.password,
+        dbDriver: dbInfo.driverClass,
+        dbUrl: dbInfo.url
     };
 
     if (currentMode === 'selectTables') {
@@ -568,6 +577,14 @@ function applyConfig(config) {
         if (radio) radio.checked = true;
     }
     if (config.maxConnections) document.getElementById('maxConnections').value = config.maxConnections;
+    if (config.dbType) { document.getElementById('dbType').value = config.dbType; onDbTypeChange(); }
+    if (config.dbHost) document.getElementById('dbHost').value = config.dbHost;
+    if (config.dbPort) document.getElementById('dbPort').value = config.dbPort;
+    if (config.dbName) document.getElementById('dbName').value = config.dbName;
+    if (config.dbUser) document.getElementById('dbUser').value = config.dbUser;
+    if (config.dbPass) document.getElementById('dbPass').value = config.dbPass;
+    if (config.dbDriver) document.getElementById('dbDriver').value = config.dbDriver;
+    if (config.dbUrl) document.getElementById('dbUrl').value = config.dbUrl;
 }
 
 /* ====== Export Files / Records ====== */
