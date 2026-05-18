@@ -89,6 +89,7 @@ public class ExportServiceImpl implements ExportService {
 
             dataSource = new HikariDataSource(hc);
             currentDbInfo = dbInfo;
+            columnCache.clear();
 
             try (Connection conn = dataSource.getConnection()) {
                 log.info("数据库连接成功: {}", dbInfo.buildUrl());
@@ -527,6 +528,7 @@ public class ExportServiceImpl implements ExportService {
 
         StringBuilder sql = new StringBuilder("SELECT * FROM \"").append(tableName).append("\"");
         List<String> conditions = new ArrayList<>();
+        boolean isDm = "dm".equalsIgnoreCase(currentDbInfo.getType());
 
         if (Boolean.TRUE.equals(config.getEnableTimeFilter()) && config.getTimeFieldNames() != null) {
             String[] fieldNames = config.getTimeFieldNames().split("[、,，]");
@@ -534,10 +536,10 @@ public class ExportServiceImpl implements ExportService {
                 field = field.trim();
                 if (!field.isEmpty() && SqlSafeUtils.isValidIdentifier(field) && hasColumn(tableName, field)) {
                     if (config.getStartDate() != null && !config.getStartDate().isEmpty()) {
-                        conditions.add("\"" + field + "\" >= '" + config.getStartDate() + "'");
+                        conditions.add("\"" + field + "\" >= " + toDateLiteral(config.getStartDate(), isDm));
                     }
                     if (config.getEndDate() != null && !config.getEndDate().isEmpty()) {
-                        conditions.add("\"" + field + "\" <= '" + config.getEndDate() + "'");
+                        conditions.add("\"" + field + "\" <= " + toDateLiteral(config.getEndDate() + " 23:59:59", isDm));
                     }
                     if (!conditions.isEmpty()) break;
                 }
@@ -566,21 +568,45 @@ public class ExportServiceImpl implements ExportService {
         return sql.toString();
     }
 
+    private String toDateLiteral(String dateStr, boolean isDm) {
+        if (isDm) {
+            if (dateStr.length() <= 10) {
+                return "TO_DATE('" + dateStr + "', 'YYYY-MM-DD')";
+            }
+            return "TO_DATE('" + dateStr + "', 'YYYY-MM-DD HH24:MI:SS')";
+        }
+        return "'" + dateStr + "'";
+    }
+
+    private final Map<String, Boolean> columnCache = new ConcurrentHashMap<>();
+
     private boolean hasColumn(String tableName, String columnName) {
+        String cacheKey = tableName.toUpperCase() + "." + columnName.toUpperCase();
+        Boolean cached = columnCache.get(cacheKey);
+        if (cached != null) return cached;
+
         try (Connection conn = dataSource.getConnection()) {
-            DatabaseMetaData meta = conn.getMetaData();
-            String catalog = conn.getCatalog();
-            String schema = conn.getSchema();
-
+            boolean result;
             if ("dm".equalsIgnoreCase(currentDbInfo.getType())) {
-                schema = currentDbInfo.getUsername().toUpperCase();
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "SELECT COUNT(*) FROM ALL_TAB_COLUMNS WHERE OWNER = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?")) {
+                    stmt.setString(1, currentDbInfo.getUsername().toUpperCase());
+                    stmt.setString(2, tableName.toUpperCase());
+                    stmt.setString(3, columnName.toUpperCase());
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        result = rs.next() && rs.getInt(1) > 0;
+                    }
+                }
+            } else {
+                DatabaseMetaData meta = conn.getMetaData();
+                try (ResultSet rs = meta.getColumns(conn.getCatalog(), conn.getSchema(), tableName, columnName)) {
+                    result = rs.next();
+                }
             }
-
-            try (ResultSet rs = meta.getColumns(catalog, schema, tableName, columnName)) {
-                return rs.next();
-            }
+            columnCache.put(cacheKey, result);
+            return result;
         } catch (Exception e) {
-            log.warn("检查列是否存在失败: {}.{}", tableName, columnName);
+            log.warn("检查列是否存在失败: {}.{}: {}", tableName, columnName, e.getMessage());
             return false;
         }
     }
