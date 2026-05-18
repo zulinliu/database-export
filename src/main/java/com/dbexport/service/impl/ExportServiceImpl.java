@@ -85,6 +85,9 @@ public class ExportServiceImpl implements ExportService {
             hc.setLeakDetectionThreshold(60000);
             hc.setReadOnly(true);
             hc.setConnectionTestQuery("SELECT 1");
+            if ("dm".equalsIgnoreCase(dbInfo.getType())) {
+                hc.addDataSourceProperty("characterEncoding", "utf-8");
+            }
 
             dataSource = new HikariDataSource(hc);
             currentDbInfo = dbInfo;
@@ -358,7 +361,7 @@ public class ExportServiceImpl implements ExportService {
             int columnCount = meta.getColumnCount();
             Path csvPath = tempDir.resolve(tableName + ".csv");
             try (BufferedWriter writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8)) {
-                writer.write('﻿');
+                writer.write("﻿");
                 StringBuilder header = new StringBuilder();
                 for (int i = 1; i <= columnCount; i++) {
                     if (i > 1) header.append(',');
@@ -445,9 +448,15 @@ public class ExportServiceImpl implements ExportService {
     private Path mergeSqlFiles(Map<String, Path> sqlFiles) throws IOException {
         Path mergedPath = Files.createTempFile("merged_", ".sql");
         try (BufferedWriter writer = Files.newBufferedWriter(mergedPath, StandardCharsets.UTF_8)) {
+            writer.write("﻿");
             writer.write("-- Database Export Tool - Merged SQL\n");
+            writer.write("-- Encoding: UTF-8\n");
             writer.write("-- Generated: ");
             writer.write(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            boolean isDm = currentDbInfo != null && "dm".equalsIgnoreCase(currentDbInfo.getType());
+            if (isDm) {
+                writer.write("\n-- Target: DM (达梦) Database");
+            }
             writer.write("\n\n");
             List<String> sortedTables = new ArrayList<>(sqlFiles.keySet());
             Collections.sort(sortedTables);
