@@ -7,8 +7,6 @@ import com.dbexport.util.SqlSafeUtils;
 import com.dbexport.util.SqlValidator;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -219,11 +218,13 @@ public class ExportServiceImpl implements ExportService {
             Path exportDir = Paths.get(configProps.getStorage().getPath()).toAbsolutePath().normalize();
             Files.createDirectories(exportDir);
 
-            Map<String, Path> excelFiles = new ConcurrentHashMap<>();
+            Map<String, Path> csvFiles = new ConcurrentHashMap<>();
             Map<String, Path> sqlFiles = new ConcurrentHashMap<>();
 
-            boolean exportExcel = config.getExportFormats() != null && config.getExportFormats().contains("excel");
-            boolean exportSql = config.getExportFormats() != null && config.getExportFormats().contains("sql");
+            String formats = config.getExportFormats();
+            boolean exportCsv = formats != null && (formats.contains("csv") || formats.contains("excel"));
+            boolean exportSql = formats != null && formats.contains("sql");
+            boolean sqlSingle = !"perTable".equals(config.getSqlFileMode());
 
             for (String tableName : tableNames) {
                 if (cancelFlags.get(taskId).get()) {
@@ -249,7 +250,7 @@ public class ExportServiceImpl implements ExportService {
                         progress.addLog("INFO", "开始导出表: " + finalTableName);
 
                         String querySql = buildQuerySql(finalTableName, config);
-                        long rowCount = exportTable(taskId, finalTableName, querySql, exportExcel, exportSql, excelFiles, sqlFiles);
+                        long rowCount = exportTable(taskId, finalTableName, querySql, exportCsv, exportSql, csvFiles, sqlFiles);
 
                         progress.getTotalRows().addAndGet(rowCount);
                         progress.getCompletedTables().incrementAndGet();
@@ -290,43 +291,22 @@ public class ExportServiceImpl implements ExportService {
 
             Path zipPath = exportDir.resolve(baseFileName + ".zip");
             try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(zipPath)))) {
-                if (exportExcel && !excelFiles.isEmpty()) {
-                    SXSSFWorkbook mergedWorkbook = new SXSSFWorkbook(100);
-                    for (Map.Entry<String, Path> entry : excelFiles.entrySet()) {
-                        try (InputStream is = Files.newInputStream(entry.getValue());
-                             Workbook wb = new SXSSFWorkbook(new org.apache.poi.xssf.usermodel.XSSFWorkbook(is))) {
-                            for (int i = 0; i < wb.getNumberOfSheets(); i++) {
-                                Sheet srcSheet = wb.getSheetAt(i);
-                                Sheet destSheet = mergedWorkbook.createSheet(srcSheet.getSheetName());
-                                copySheet(srcSheet, destSheet);
-                            }
-                        } catch (Exception e) {
-                            log.warn("合并Excel表 {} 失败，单独打包", entry.getKey(), e);
-                            addToZip(zos, entry.getKey() + ".xlsx", entry.getValue());
+                for (Map.Entry<String, Path> entry : csvFiles.entrySet()) {
+                    addToZip(zos, "csv/" + entry.getKey() + ".csv", entry.getValue());
+                }
+                if (!sqlFiles.isEmpty()) {
+                    if (sqlSingle) {
+                        Path mergedSql = mergeSqlFiles(sqlFiles);
+                        addToZip(zos, "export.sql", mergedSql);
+                        Files.deleteIfExists(mergedSql);
+                    } else {
+                        for (Map.Entry<String, Path> entry : sqlFiles.entrySet()) {
+                            addToZip(zos, "sql/" + entry.getKey() + ".sql", entry.getValue());
                         }
                     }
-                    if (mergedWorkbook.getNumberOfSheets() > 0) {
-                        Path mergedPath = exportDir.resolve(baseFileName + "_merged.xlsx");
-                        try (OutputStream os = Files.newOutputStream(mergedPath)) {
-                            mergedWorkbook.write(os);
-                        }
-                        addToZip(zos, baseFileName + ".xlsx", mergedPath);
-                        Files.deleteIfExists(mergedPath);
-                    }
-                    mergedWorkbook.dispose();
-                    mergedWorkbook.close();
                 }
-
-                for (Map.Entry<String, Path> entry : sqlFiles.entrySet()) {
-                    addToZip(zos, entry.getKey() + ".sql", entry.getValue());
-                }
-
-                for (Map.Entry<String, Path> entry : excelFiles.entrySet()) {
-                    Files.deleteIfExists(entry.getValue());
-                }
-                for (Map.Entry<String, Path> entry : sqlFiles.entrySet()) {
-                    Files.deleteIfExists(entry.getValue());
-                }
+                csvFiles.values().forEach(p -> { try { Files.deleteIfExists(p); } catch (Exception ignored) {} });
+                sqlFiles.values().forEach(p -> { try { Files.deleteIfExists(p); } catch (Exception ignored) {} });
             }
 
             progress.setFileName(baseFileName + ".zip");
@@ -348,108 +328,68 @@ public class ExportServiceImpl implements ExportService {
         }
     }
 
-    private void copySheet(Sheet src, Sheet dest) {
-        for (int r = 0; r <= src.getLastRowNum(); r++) {
-            Row srcRow = src.getRow(r);
-            if (srcRow == null) continue;
-            Row destRow = dest.createRow(r);
-            for (int c = 0; c < srcRow.getLastCellNum(); c++) {
-                Cell srcCell = srcRow.getCell(c);
-                if (srcCell == null) continue;
-                Cell destCell = destRow.createCell(c);
-                destCell.setCellValue(srcCell.getStringCellValue());
-            }
-        }
-    }
-
-    private void cleanupProgress(String taskId) {
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        scheduler.schedule(() -> {
-            progressMap.remove(taskId);
-            cancelFlags.remove(taskId);
-            scheduler.shutdown();
-        }, 5, TimeUnit.MINUTES);
-    }
-
     private long exportTable(String taskId, String tableName, String querySql,
-                             boolean exportExcel, boolean exportSql,
-                             Map<String, Path> excelFiles, Map<String, Path> sqlFiles) throws Exception {
+                             boolean exportCsv, boolean exportSql,
+                             Map<String, Path> csvFiles, Map<String, Path> sqlFiles) throws Exception {
         ExportProgress progress = progressMap.get(taskId);
         Path tempDir = Paths.get(configProps.getStorage().getTemp());
         Files.createDirectories(tempDir);
-
         long rowCount = 0;
-
-        if (exportExcel) {
-            rowCount = exportTableToExcel(taskId, tableName, querySql, progress, tempDir, excelFiles);
+        if (exportCsv) {
+            rowCount = exportTableToCsv(taskId, tableName, querySql, progress, tempDir, csvFiles);
         }
-
         if (exportSql) {
             long sqlRowCount = exportTableToSql(taskId, tableName, querySql, progress, tempDir, sqlFiles);
-            if (!exportExcel) rowCount = sqlRowCount;
+            if (!exportCsv) rowCount = sqlRowCount;
         }
-
         return rowCount;
     }
 
-    private long exportTableToExcel(String taskId, String tableName, String querySql,
-                                    ExportProgress progress, Path tempDir,
-                                    Map<String, Path> excelFiles) throws Exception {
+    private long exportTableToCsv(String taskId, String tableName, String querySql,
+                                   ExportProgress progress, Path tempDir,
+                                   Map<String, Path> csvFiles) throws Exception {
         long rowCount = 0;
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
              ResultSet rs = stmt.executeQuery(querySql)) {
             stmt.setFetchSize(configProps.getFetchSize());
             conn.setReadOnly(true);
-
             ResultSetMetaData meta = rs.getMetaData();
             int columnCount = meta.getColumnCount();
-
-            SXSSFWorkbook workbook = new SXSSFWorkbook(100);
-            try {
-                String sheetName = tableName.substring(0, Math.min(tableName.length(), 31));
-                Sheet sheet = workbook.createSheet(sheetName);
-
-                Row headerRow = sheet.createRow(0);
-                CellStyle headerStyle = workbook.createCellStyle();
-                Font font = workbook.createFont();
-                font.setBold(true);
-                headerStyle.setFont(font);
-                headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-
+            Path csvPath = tempDir.resolve(tableName + ".csv");
+            try (BufferedWriter writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8)) {
+                writer.write('﻿');
+                StringBuilder header = new StringBuilder();
                 for (int i = 1; i <= columnCount; i++) {
-                    Cell cell = headerRow.createCell(i - 1);
-                    cell.setCellValue(meta.getColumnLabel(i));
-                    cell.setCellStyle(headerStyle);
+                    if (i > 1) header.append(',');
+                    header.append(escapeCsv(meta.getColumnLabel(i)));
                 }
-
-                int rowNum = 1;
+                writer.write(header.toString());
+                writer.write('\n');
                 while (rs.next()) {
                     if (cancelFlags.get(taskId).get()) break;
-                    Row row = sheet.createRow(rowNum++);
+                    StringBuilder row = new StringBuilder();
                     for (int i = 1; i <= columnCount; i++) {
-                        Cell cell = row.createCell(i - 1);
-                        String value = rs.getString(i);
-                        cell.setCellValue(value != null ? value : "");
+                        if (i > 1) row.append(',');
+                        row.append(escapeCsv(rs.getString(i)));
                     }
+                    writer.write(row.toString());
+                    writer.write('\n');
                     rowCount++;
                     if (rowCount % 1000 == 0) progress.setCurrentTableRows(rowCount);
                 }
-
-                for (int i = 1; i <= columnCount; i++) sheet.setColumnWidth(i - 1, 5000);
-
-                Path excelPath = tempDir.resolve(tableName + ".xlsx");
-                try (OutputStream os = Files.newOutputStream(excelPath)) {
-                    workbook.write(os);
-                }
-                excelFiles.put(tableName, excelPath);
-            } finally {
-                workbook.dispose();
-                workbook.close();
             }
+            csvFiles.put(tableName, csvPath);
         }
         return rowCount;
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private long exportTableToSql(String taskId, String tableName, String querySql,
@@ -461,64 +401,81 @@ public class ExportServiceImpl implements ExportService {
              ResultSet rs = stmt.executeQuery(querySql)) {
             stmt.setFetchSize(configProps.getFetchSize());
             conn.setReadOnly(true);
-
             ResultSetMetaData meta = rs.getMetaData();
             int columnCount = meta.getColumnCount();
-
             Path sqlPath = tempDir.resolve(tableName + ".sql");
-            try (Writer sqlWriter = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(sqlPath), "UTF-8"))) {
-                int batchSize = 0;
-                StringBuilder batchBuilder = new StringBuilder();
-
+            try (BufferedWriter writer = Files.newBufferedWriter(sqlPath, StandardCharsets.UTF_8)) {
+                writer.write("-- Table: ");
+                writer.write(tableName);
+                writer.write("\n\n");
+                StringBuilder cols = new StringBuilder();
+                for (int i = 1; i <= columnCount; i++) {
+                    if (i > 1) cols.append(", ");
+                    cols.append("\"").append(meta.getColumnLabel(i)).append("\"");
+                }
+                String colList = cols.toString();
                 while (rs.next()) {
                     if (cancelFlags.get(taskId).get()) break;
-
-                    if (batchSize == 0) {
-                        batchBuilder.append("-- ").append(tableName).append(" 表数据\n");
-                        batchBuilder.append("INSERT ALL\n");
-                    }
-
-                    StringBuilder cols = new StringBuilder();
+                    writer.write("INSERT INTO \"");
+                    writer.write(tableName);
+                    writer.write("\" (");
+                    writer.write(colList);
+                    writer.write(") VALUES (");
                     for (int i = 1; i <= columnCount; i++) {
-                        if (i > 1) cols.append(", ");
-                        cols.append(meta.getColumnLabel(i));
-                    }
-
-                    StringBuilder values = new StringBuilder("INTO ");
-                    values.append(tableName).append(" (").append(cols).append(") VALUES (");
-
-                    for (int i = 1; i <= columnCount; i++) {
-                        if (i > 1) values.append(", ");
+                        if (i > 1) writer.write(", ");
                         String value = rs.getString(i);
                         if (value == null) {
-                            values.append("NULL");
+                            writer.write("NULL");
                         } else {
-                            values.append("'").append(value.replace("'", "''")).append("'");
+                            writer.write('\'');
+                            writer.write(value.replace("'", "''"));
+                            writer.write('\'');
                         }
                     }
-                    values.append(")");
-                    batchBuilder.append(values).append("\n");
-
-                    batchSize++;
+                    writer.write(");\n");
                     rowCount++;
                     if (rowCount % 1000 == 0) progress.setCurrentTableRows(rowCount);
-
-                    if (batchSize >= configProps.getBatchSize()) {
-                        batchBuilder.append("SELECT 1 FROM DUAL;\n\n");
-                        sqlWriter.write(batchBuilder.toString());
-                        batchBuilder = new StringBuilder();
-                        batchSize = 0;
-                    }
-                }
-
-                if (batchSize > 0) {
-                    batchBuilder.append("SELECT 1 FROM DUAL;\n");
-                    sqlWriter.write(batchBuilder.toString());
                 }
             }
             sqlFiles.put(tableName, sqlPath);
         }
         return rowCount;
+    }
+
+    private Path mergeSqlFiles(Map<String, Path> sqlFiles) throws IOException {
+        Path mergedPath = Files.createTempFile("merged_", ".sql");
+        try (BufferedWriter writer = Files.newBufferedWriter(mergedPath, StandardCharsets.UTF_8)) {
+            writer.write("-- Database Export Tool - Merged SQL\n");
+            writer.write("-- Generated: ");
+            writer.write(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            writer.write("\n\n");
+            List<String> sortedTables = new ArrayList<>(sqlFiles.keySet());
+            Collections.sort(sortedTables);
+            for (String tableName : sortedTables) {
+                writer.write("-- ========================================\n");
+                writer.write("-- Table: ");
+                writer.write(tableName);
+                writer.write("\n-- ========================================\n");
+                try (BufferedReader reader = Files.newBufferedReader(sqlFiles.get(tableName), StandardCharsets.UTF_8)) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        writer.write(line);
+                        writer.write('\n');
+                    }
+                }
+                writer.write('\n');
+            }
+        }
+        return mergedPath;
+    }
+
+    private void cleanupProgress(String taskId) {
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.schedule(() -> {
+            progressMap.remove(taskId);
+            cancelFlags.remove(taskId);
+            scheduler.shutdown();
+        }, 5, TimeUnit.MINUTES);
     }
 
     private String buildQuerySql(String tableName, ExportConfig config) {

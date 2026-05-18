@@ -178,16 +178,25 @@
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="font-size:14px;font-weight:500;">导出格式：</span>
                     <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-                        <input type="radio" name="exportFormat" value="excel" id="fmtExcel"> Excel (.xlsx)
+                        <input type="radio" name="exportFormat" value="csv" id="fmtCsv" checked> CSV (.csv)
                     </label>
                     <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
                         <input type="radio" name="exportFormat" value="sql"> INSERT SQL (.sql)
                     </label>
                     <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-                        <input type="radio" name="exportFormat" value="excel,sql" checked> 两者同时
+                        <input type="radio" name="exportFormat" value="csv,sql"> 两者同时
                     </label>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
+                <div id="sqlModeRow" style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:14px;font-weight:500;">SQL文件模式：</span>
+                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                        <input type="radio" name="sqlFileMode" value="single" checked> 单文件
+                    </label>
+                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                        <input type="radio" name="sqlFileMode" value="perTable"> 每表一文件
+                    </label>
+                </div>
                     <span style="font-size:14px;font-weight:500;">最大并发连接数：</span>
                     <input class="input" id="maxConnections" type="number" min="1" max="10" value="5" style="width:80px;">
                 </div>

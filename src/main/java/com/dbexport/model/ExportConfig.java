@@ -18,4 +18,5 @@ public class ExportConfig {
 
     private String exportFormats;
     private Integer maxConnections;
+    private String sqlFileMode;
 }

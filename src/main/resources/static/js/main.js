@@ -237,7 +237,8 @@ function buildExportConfig() {
         dbUser: dbInfo.username,
         dbPass: dbInfo.password,
         dbDriver: dbInfo.driverClass,
-        dbUrl: dbInfo.url
+        dbUrl: dbInfo.url,
+        sqlFileMode: document.querySelector('input[name="sqlFileMode"]:checked').value
     };
 
     if (currentMode === 'selectTables') {
@@ -585,6 +586,10 @@ function applyConfig(config) {
     if (config.dbPass) document.getElementById('dbPass').value = config.dbPass;
     if (config.dbDriver) document.getElementById('dbDriver').value = config.dbDriver;
     if (config.dbUrl) document.getElementById('dbUrl').value = config.dbUrl;
+    if (config.sqlFileMode) {
+        const radio = document.querySelector(`input[name="sqlFileMode"][value="${config.sqlFileMode}"]`);
+        if (radio) radio.checked = true;
+    }
 }
 
 /* ====== Export Files / Records ====== */
