@@ -6,41 +6,93 @@
     <title>数据库导出工具</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-            </svg>
-            <span>数据库导出工具</span>
-        </div>
-        <div class="header-right">
-            <div class="header-status" id="connStatus">
-                <span class="dot" id="connDot"></span>
-                <span id="connText">未连接</span>
+<body class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                </svg>
             </div>
-            <span class="header-user" id="currentUser"></span>
-            <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
-            <button class="btn btn-sm btn-secondary" onclick="logout()">退出</button>
+            <div class="sidebar-brand-copy">
+                <span class="sidebar-title">数据库导出工具</span>
+                <span class="sidebar-subtitle">Database Export Console</span>
+            </div>
         </div>
-    </header>
+        <div class="sidebar-nav-group">
+            <div class="sidebar-nav-label">工作台</div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-item active" data-page="export" onclick="switchPage('export')">
+                    <span class="sidebar-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </span>
+                    <span class="sidebar-item-copy">
+                        <span>数据导出</span>
+                        <small>导出任务</small>
+                    </span>
+                </button>
+            </nav>
+        </div>
+        <div class="sidebar-nav-group">
+            <div class="sidebar-nav-label">管理</div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-item" data-page="templates" onclick="switchPage('templates')">
+                    <span class="sidebar-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </span>
+                    <span class="sidebar-item-copy">
+                        <span>模板管理</span>
+                        <small>配置模板</small>
+                    </span>
+                </button>
+                <button class="sidebar-item" data-page="records" onclick="switchPage('records')">
+                    <span class="sidebar-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    </span>
+                    <span class="sidebar-item-copy">
+                        <span>导出记录</span>
+                        <small>下载历史</small>
+                    </span>
+                </button>
+            </nav>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-status-card">
+                <div class="sidebar-status-label">数据库状态</div>
+                <div class="sidebar-status" id="connStatus">
+                    <span class="dot" id="connDot"></span>
+                    <span id="connText">未连接</span>
+                </div>
+            </div>
+            <div class="sidebar-user-row">
+                <span class="sidebar-user" id="currentUser"></span>
+                <button class="sidebar-theme-btn" id="themeToggle" title="切换主题">
+                    <span id="themeIcon">🌙</span>
+                </button>
+            </div>
+            <button class="sidebar-logout" onclick="logout()">退出登录</button>
+        </div>
+    </aside>
 
-    <!-- Nav -->
-    <nav class="nav-tabs">
-        <button class="nav-tab active" data-page="export" onclick="switchPage('export')">数据导出</button>
-        <button class="nav-tab" data-page="templates" onclick="switchPage('templates')">模板管理</button>
-        <button class="nav-tab" data-page="records" onclick="switchPage('records')">导出记录</button>
-    </nav>
+    <!-- Main Content -->
+    <main class="main-content">
 
     <!-- Page: Data Export -->
     <div class="page-container" id="page-export">
+        <section class="page-hero">
+            <div>
+                <div class="page-eyebrow">Workspace</div>
+                <h1 class="page-title">数据导出工作台</h1>
+                <p class="page-description">保留原有导出能力不变，优化配置阅读、操作密度与反馈层级。</p>
+            </div>
+        </section>
         <!-- DB Connection -->
         <div class="card section">
             <div class="section-title">数据库连接</div>
-            <div class="form-grid" style="grid-template-columns: 140px 1fr 100px 160px 140px 1fr;">
+            <div class="form-grid connection-grid">
                 <div class="form-group">
                     <label>数据库类型</label>
                     <select class="input" id="dbType" onchange="onDbTypeChange()">
@@ -65,8 +117,8 @@
                     <label>用户名</label>
                     <input class="input" id="dbUser" placeholder="用户名">
                 </div>
-                <div class="form-group" style="display:flex;flex-direction:row;gap:8px;align-items:flex-end;">
-                    <div style="flex:1">
+                <div class="form-group password-actions">
+                    <div class="password-field">
                         <label>密码</label>
                         <input class="input" id="dbPass" type="password" placeholder="密码">
                     </div>
@@ -74,7 +126,7 @@
                     <button class="btn btn-primary" onclick="connectDatabase()">连接</button>
                 </div>
             </div>
-            <div id="driverCustomRow" style="display:none;margin-top:12px;" class="form-grid">
+            <div id="driverCustomRow" class="form-grid driver-custom-row" style="display:none;">
                 <div class="form-group">
                     <label>驱动类名</label>
                     <input class="input" id="dbDriver" placeholder="com.example.Driver">
@@ -89,10 +141,10 @@
         <!-- Export Mode -->
         <div class="card section">
             <div class="section-title">导出模式</div>
-            <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:16px;">
-                <button class="nav-tab active" data-mode="customTables" onclick="switchMode(this,'customTables')">自定义表名</button>
-                <button class="nav-tab" data-mode="selectTables" onclick="switchMode(this,'selectTables')">表勾选</button>
-                <button class="nav-tab" data-mode="customSql" onclick="switchMode(this,'customSql')">自定义SQL</button>
+            <div class="mode-tab-group">
+                <button class="mode-tab active" data-mode="customTables" onclick="switchMode(this,'customTables')">自定义表名</button>
+                <button class="mode-tab" data-mode="selectTables" onclick="switchMode(this,'selectTables')">表勾选</button>
+                <button class="mode-tab" data-mode="customSql" onclick="switchMode(this,'customSql')">自定义SQL</button>
             </div>
             <!-- Custom Tables -->
             <div id="mode-customTables">
@@ -105,25 +157,25 @@
             <div id="mode-selectTables" style="display:none;">
                 <div class="action-bar">
                     <div class="action-bar-left">
-                        <input class="input" id="tableSearch" placeholder="搜索表名..." style="width:250px;" oninput="filterTables()">
+                        <input class="input search-input" id="tableSearch" placeholder="搜索表名..." oninput="filterTables()">
                         <button class="btn btn-sm btn-secondary" onclick="selectAllTables()">全选</button>
                         <button class="btn btn-sm btn-secondary" onclick="invertTables()">反选</button>
                         <button class="btn btn-sm btn-secondary" onclick="clearTables()">清空</button>
                     </div>
-                    <span style="font-size:13px;color:var(--text-secondary);" id="selectedCount">已选择: 0 个表</span>
+                    <span class="action-bar-meta" id="selectedCount">已选择: 0 个表</span>
                 </div>
-                <div id="tableList" style="max-height:300px;overflow-y:auto;">
-                    <p style="color:var(--text-muted);text-align:center;padding:40px;">请先连接数据库</p>
+                <div id="tableList" class="table-shell select-table-list">
+                    <p class="placeholder-note">请先连接数据库</p>
                 </div>
             </div>
             <!-- Custom SQL -->
             <div id="mode-customSql" style="display:none;">
                 <div class="form-group">
                     <label>每行输入一条SELECT语句，Sheet名自动从表名提取</label>
-                    <textarea class="input" id="customSql" rows="8" style="font-family:'SF Mono','Fira Code','Consolas',monospace;font-size:13px;" placeholder="SELECT * FROM TABLE1 WHERE STATUS = 'ACTIVE'&#10;SELECT ID, NAME FROM TABLE2 WHERE DATE > '2025-01-01'"></textarea>
+                    <textarea class="input code-input" id="customSql" rows="8" placeholder="SELECT * FROM TABLE1 WHERE STATUS = 'ACTIVE'&#10;SELECT ID, NAME FROM TABLE2 WHERE DATE > '2025-01-01'"></textarea>
                 </div>
-                <button class="btn btn-sm btn-secondary" onclick="validateSql()" style="margin-top:8px;">验证SQL</button>
-                <div id="sqlValidateResult" style="margin-top:8px;font-size:13px;"></div>
+                <button class="btn btn-sm btn-secondary sql-validate-btn" onclick="validateSql()">验证SQL</button>
+                <div id="sqlValidateResult" class="validation-list"></div>
             </div>
         </div>
 
@@ -131,80 +183,82 @@
         <div class="card section">
             <div class="section-title">数据过滤策略</div>
             <!-- Time Filter -->
-            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+            <div class="filter-toggle-row">
                 <div class="switch-wrap">
                     <label class="switch">
                         <input type="checkbox" id="enableTimeFilter" onchange="toggleTimeFilter()">
                         <span class="slider"></span>
                     </label>
-                    <span style="font-size:14px;font-weight:500;">时间范围过滤</span>
+                    <span class="filter-toggle-title">时间范围过滤</span>
                 </div>
-                <div id="timeFilterFields" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size:13px;color:var(--text-secondary);">时间字段</span>
-                    <input class="input" id="timeFieldNames" placeholder="DATE、DATA_TIME" style="width:180px;">
-                    <span style="font-size:13px;color:var(--text-secondary);">从</span>
-                    <input class="input" id="startDate" type="text" placeholder="2026-05-13" style="width:160px;">
-                    <span style="font-size:13px;color:var(--text-secondary);">到</span>
-                    <input class="input" id="endDate" type="text" placeholder="2026-05-18" style="width:160px;">
+                <div id="timeFilterFields" class="filter-fields" style="display:none;">
+                    <span class="filter-label">时间字段</span>
+                    <input class="input compact-input" id="timeFieldNames" placeholder="DATE、DATA_TIME">
+                    <span class="filter-label">从</span>
+                    <input class="input compact-input" id="startDate" type="text" placeholder="2026-05-13">
+                    <span class="filter-label">到</span>
+                    <input class="input compact-input" id="endDate" type="text" placeholder="2026-05-18">
                 </div>
             </div>
             <!-- Field Filter -->
-            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div class="filter-toggle-row">
                 <div class="switch-wrap">
                     <label class="switch">
                         <input type="checkbox" id="enableFieldFilter" onchange="toggleFieldFilter()">
                         <span class="slider"></span>
                     </label>
-                    <span style="font-size:14px;font-weight:500;">自定义字段过滤</span>
+                    <span class="filter-toggle-title">自定义字段过滤</span>
                 </div>
-                <div id="fieldFilterFields" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size:13px;color:var(--text-secondary);">字段名</span>
-                    <input class="input" id="filterFieldName" placeholder="CASE_ID" style="width:150px;">
-                    <span style="font-size:13px;color:var(--text-secondary);">方式</span>
-                    <select class="input" id="filterType" style="width:120px;">
+                <div id="fieldFilterFields" class="filter-fields" style="display:none;">
+                    <span class="filter-label">字段名</span>
+                    <input class="input compact-input compact-input-sm" id="filterFieldName" placeholder="CASE_ID">
+                    <span class="filter-label">方式</span>
+                    <select class="input compact-input compact-input-xs" id="filterType">
                         <option value="EQUAL">等于</option>
                         <option value="IN">包含</option>
                         <option value="RANGE">范围</option>
                     </select>
-                    <span style="font-size:13px;color:var(--text-secondary);">值</span>
-                    <input class="input" id="filterValue" placeholder="值" style="width:200px;">
+                    <span class="filter-label">值</span>
+                    <input class="input compact-input compact-input-md" id="filterValue" placeholder="值">
                 </div>
             </div>
         </div>
 
         <!-- Export Config -->
         <div class="card section">
-            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:14px;font-weight:500;">导出格式：</span>
-                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <div class="config-options">
+                <div class="config-group">
+                    <span class="config-label">导出格式</span>
+                    <label class="radio-option">
                         <input type="radio" name="exportFormat" value="csv" id="fmtCsv" checked> CSV (.csv)
                     </label>
-                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                    <label class="radio-option">
                         <input type="radio" name="exportFormat" value="sql"> INSERT SQL (.sql)
                     </label>
-                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                    <label class="radio-option">
                         <input type="radio" name="exportFormat" value="csv,sql"> 两者同时
                     </label>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                <div id="sqlModeRow" style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:14px;font-weight:500;">SQL文件模式：</span>
-                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-                        <input type="radio" name="sqlFileMode" value="single" checked> 单文件
-                    </label>
-                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-                        <input type="radio" name="sqlFileMode" value="perTable"> 每表一文件
-                    </label>
-                </div>
-                    <span style="font-size:14px;font-weight:500;">最大并发连接数：</span>
-                    <input class="input" id="maxConnections" type="number" min="1" max="10" value="5" style="width:80px;">
+                <div class="config-group">
+                    <div id="sqlModeRow" class="config-group">
+                        <span class="config-label">SQL文件模式</span>
+                        <label class="radio-option">
+                            <input type="radio" name="sqlFileMode" value="single" checked> 单文件
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="sqlFileMode" value="perTable"> 每表一文件
+                        </label>
+                    </div>
+                    <div class="config-group">
+                        <span class="config-label">最大并发连接数</span>
+                        <input class="input compact-input compact-input-xxs" id="maxConnections" type="number" min="1" max="10" value="5">
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Action Buttons -->
-        <div style="display:flex;justify-content:space-between;margin-bottom:24px;">
+        <div class="page-actions">
             <button class="btn btn-secondary" onclick="openSaveTemplateModal()">保存为模板</button>
             <button class="btn btn-primary btn-lg" onclick="startExport()">开始导出</button>
         </div>
@@ -212,11 +266,11 @@
         <!-- Export Progress (hidden by default) -->
         <div class="card section" id="progressSection" style="display:none;">
             <div class="section-title">导出进度</div>
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                <div class="progress-bar" style="flex:1;">
+            <div class="progress-head">
+                <div class="progress-bar">
                     <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
                 </div>
-                <span id="progressPercent" style="font-weight:600;min-width:50px;">0%</span>
+                <span id="progressPercent" class="progress-percent">0%</span>
             </div>
             <div class="progress-stats">
                 <div class="progress-stat">
@@ -240,8 +294,8 @@
                     <div class="label">预计剩余</div>
                 </div>
             </div>
-            <div class="log-panel" id="logPanel" style="margin-top:16px;"></div>
-            <div style="text-align:center;margin-top:16px;">
+            <div class="log-panel section-log" id="logPanel"></div>
+            <div class="progress-footer">
                 <button class="btn btn-danger" id="cancelBtn" onclick="cancelExport()">取消导出</button>
             </div>
         </div>
@@ -266,16 +320,23 @@
                     <span class="pool-value" id="poolWaitVal">0</span>
                 </div>
             </div>
-            <div style="display:flex;gap:24px;margin-top:12px;font-size:13px;color:var(--text-secondary);">
+            <div class="pool-summary">
                 <span>总连接数: <strong id="poolTotal">0</strong></span>
                 <span>最大连接数: <strong id="poolMax">10</strong></span>
-                <span>状态: <strong id="poolStatus" style="color:var(--text-muted)">未连接</strong></span>
+                <span>状态: <strong id="poolStatus" class="status-muted">未连接</strong></span>
             </div>
         </div>
     </div>
 
     <!-- Page: Template Management -->
     <div class="page-container" id="page-templates" style="display:none;">
+        <section class="page-hero">
+            <div>
+                <div class="page-eyebrow">Templates</div>
+                <h1 class="page-title">模板管理</h1>
+                <p class="page-description">统一管理常用导出配置，减少重复输入并保持导出标准一致。</p>
+            </div>
+        </section>
         <div class="card">
             <div class="section-title">模板管理</div>
             <div class="action-bar">
@@ -287,23 +348,25 @@
                     <button class="btn btn-primary" onclick="openNewTemplateModal()">新建模板</button>
                     <button class="btn btn-secondary" onclick="batchExportTemplates()">批量导出</button>
                     <button class="btn btn-secondary" onclick="document.getElementById('templateImportFile').click()">批量导入</button>
-                    <input type="file" id="templateImportFile" accept=".zip" style="display:none" onchange="importTemplates(event)">
+                    <input type="file" id="templateImportFile" class="hidden-input" accept=".zip" onchange="importTemplates(event)">
                 </div>
             </div>
             <div id="templateListContainer">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th style="width:40px;"><input type="checkbox" class="checkbox" id="templateCheckAll" onchange="toggleAllTemplates()"></th>
-                            <th>模板名称</th>
-                            <th>描述</th>
-                            <th>创建时间</th>
-                            <th style="width:200px;">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="templateTableBody">
-                    </tbody>
-                </table>
+                <div class="table-shell">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="col-checkbox"><input type="checkbox" class="checkbox" id="templateCheckAll" onchange="toggleAllTemplates()"></th>
+                                <th>模板名称</th>
+                                <th>描述</th>
+                                <th>创建时间</th>
+                                <th class="col-actions">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="templateTableBody">
+                        </tbody>
+                    </table>
+                </div>
                 <div id="templateEmptyState" class="empty-state" style="display:none;">
                     <div class="empty-state-icon">📋</div>
                     <div class="empty-state-title">暂无模板</div>
@@ -311,7 +374,7 @@
                     <button class="btn btn-primary" onclick="switchPage('export')">去导出数据</button>
                 </div>
             </div>
-            <div class="action-bar" style="margin-top:16px;">
+            <div class="action-bar action-bar-bottom">
                 <div class="action-bar-left">
                     <button class="btn btn-sm btn-danger" onclick="batchDeleteTemplates()">删除选中</button>
                     <button class="btn btn-sm btn-secondary" onclick="loadSelectedTemplate()">加载选中配置</button>
@@ -322,6 +385,13 @@
 
     <!-- Page: Export Records -->
     <div class="page-container" id="page-records" style="display:none;">
+        <section class="page-hero">
+            <div>
+                <div class="page-eyebrow">Records</div>
+                <h1 class="page-title">导出记录</h1>
+                <p class="page-description">集中查看历史导出结果，快速完成下载、删除与批量清理。</p>
+            </div>
+        </section>
         <div class="card">
             <div class="section-title">导出记录</div>
             <div class="action-bar">
@@ -331,20 +401,22 @@
                 <button class="btn btn-sm btn-secondary" onclick="loadExportFiles()">刷新</button>
             </div>
             <div id="recordsListContainer">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th style="width:40px;"><input type="checkbox" class="checkbox" id="fileCheckAll" onchange="toggleAllFiles()"></th>
-                            <th>文件名</th>
-                            <th>大小</th>
-                            <th>时间</th>
-                            <th>状态</th>
-                            <th style="width:120px;">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="recordsTableBody">
-                    </tbody>
-                </table>
+                <div class="table-shell">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="col-checkbox"><input type="checkbox" class="checkbox" id="fileCheckAll" onchange="toggleAllFiles()"></th>
+                                <th>文件名</th>
+                                <th>大小</th>
+                                <th>时间</th>
+                                <th>状态</th>
+                                <th class="col-actions col-actions-sm">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recordsTableBody">
+                        </tbody>
+                    </table>
+                </div>
                 <div id="recordsEmptyState" class="empty-state" style="display:none;">
                     <div class="empty-state-icon">📦</div>
                     <div class="empty-state-title">暂无导出记录</div>
@@ -352,7 +424,7 @@
                     <button class="btn btn-primary" onclick="switchPage('export')">开始导出</button>
                 </div>
             </div>
-            <div class="action-bar" style="margin-top:16px;">
+            <div class="action-bar action-bar-bottom">
                 <div class="action-bar-left">
                     <button class="btn btn-sm btn-secondary" onclick="downloadSelectedFiles()">下载选中</button>
                     <button class="btn btn-sm btn-danger" onclick="batchDeleteFiles()">删除选中</button>
@@ -363,18 +435,18 @@
 
     <!-- Modals -->
     <div class="modal-overlay" id="connectionTestModal">
-        <div class="modal" style="max-width:480px;">
+        <div class="modal modal-sm">
             <div class="modal-header"><h3>连接测试</h3><button class="modal-close" onclick="closeModal('connectionTestModal')">&times;</button></div>
-            <div class="modal-body" id="connectionTestBody" style="text-align:center;"></div>
+            <div class="modal-body modal-body-center" id="connectionTestBody"></div>
             <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('connectionTestModal')">确定</button></div>
         </div>
     </div>
 
     <div class="modal-overlay" id="saveTemplateModal">
-        <div class="modal" style="max-width:480px;">
+        <div class="modal modal-sm">
             <div class="modal-header"><h3>保存模板</h3><button class="modal-close" onclick="closeModal('saveTemplateModal')">&times;</button></div>
             <div class="modal-body">
-                <div class="form-group" style="margin-bottom:16px;">
+                <div class="form-group modal-form-group">
                     <label>模板名称</label>
                     <input class="input" id="templateName" placeholder="请输入模板名称">
                 </div>
@@ -391,7 +463,7 @@
     </div>
 
     <div class="modal-overlay" id="tableSelectModal">
-        <div class="modal" style="max-width:800px;max-height:80vh;">
+        <div class="modal modal-lg modal-tall">
             <div class="modal-header"><h3>选择数据表</h3><button class="modal-close" onclick="closeModal('tableSelectModal')">&times;</button></div>
             <div class="modal-body" id="tableSelectBody"></div>
             <div class="modal-footer">
@@ -402,9 +474,9 @@
     </div>
 
     <div class="modal-overlay" id="confirmModal">
-        <div class="modal" style="max-width:440px;">
+        <div class="modal modal-xs">
             <div class="modal-header"><h3 id="confirmTitle">确认操作</h3><button class="modal-close" onclick="closeModal('confirmModal')">&times;</button></div>
-            <div class="modal-body" id="confirmBody" style="text-align:center;"></div>
+            <div class="modal-body modal-body-center" id="confirmBody"></div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('confirmModal')">取消</button>
                 <button class="btn btn-danger" id="confirmAction">确定</button>
@@ -413,15 +485,17 @@
     </div>
 
     <div class="modal-overlay" id="exportResultModal">
-        <div class="modal" style="max-width:500px;">
+        <div class="modal modal-md">
             <div class="modal-header"><h3>导出完成</h3><button class="modal-close" onclick="closeModal('exportResultModal')">&times;</button></div>
-            <div class="modal-body" id="exportResultBody" style="text-align:center;"></div>
+            <div class="modal-body modal-body-center" id="exportResultBody"></div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('exportResultModal')">关闭</button>
                 <button class="btn btn-primary" id="downloadResultBtn">立即下载</button>
             </div>
         </div>
     </div>
+
+    </main>
 
     <div class="toast-container" id="toastContainer"></div>
 

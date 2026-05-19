@@ -20,15 +20,25 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ====== Theme ====== */
-document.getElementById('themeToggle').addEventListener('click', () => {
+const themeToggleBtn = document.getElementById('themeToggle');
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', toggleTheme);
+}
+
+function toggleTheme() {
     const current = document.documentElement.getAttribute('data-theme');
     setTheme(current === 'dark' ? 'light' : 'dark');
-});
+}
 
 function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
-    document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    if (themeToggleBtn) {
+        themeToggleBtn.title = theme === 'dark' ? '切换到浅色主题' : '切换到深色主题';
+        themeToggleBtn.setAttribute('aria-label', themeToggleBtn.title);
+    }
 }
 
 /* ====== Auth ====== */
@@ -46,7 +56,7 @@ function logout() {
 /* ====== Page Navigation ====== */
 function switchPage(page) {
     currentPage = page;
-    document.querySelectorAll('.nav-tabs .nav-tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
+    document.querySelectorAll('.sidebar-item').forEach(t => t.classList.toggle('active', t.dataset.page === page));
     document.querySelectorAll('.page-container').forEach(p => p.style.display = 'none');
     document.getElementById('page-' + page).style.display = '';
     if (page === 'templates') loadTemplates();
@@ -56,7 +66,7 @@ function switchPage(page) {
 /* ====== Export Mode Switch ====== */
 function switchMode(btn, mode) {
     currentMode = mode;
-    btn.parentElement.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    btn.parentElement.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('mode-customTables').style.display = mode === 'customTables' ? '' : 'none';
     document.getElementById('mode-selectTables').style.display = mode === 'selectTables' ? '' : 'none';
@@ -89,7 +99,12 @@ function getDbInfo() {
 
 async function testConnection() {
     const body = document.getElementById('connectionTestBody');
-    body.innerHTML = '<div class="loading-spinner" style="width:36px;height:36px;margin:20px auto;"></div><p style="margin-top:12px;">正在测试连接...</p>';
+    body.innerHTML = `
+        <div class="result-card">
+            <div class="result-icon info"><span class="loading-spinner"></span></div>
+            <div class="result-title">正在测试连接</div>
+            <div class="result-copy">正在校验数据库地址、认证信息与可达性。</div>
+        </div>`;
     openModal('connectionTestModal');
     try {
         const res = await fetch('/api/database/connect', {
@@ -100,25 +115,48 @@ async function testConnection() {
         if (data.success) {
             const db = getDbInfo();
             body.innerHTML = `
-                <div style="font-size:48px;color:var(--success);">✓</div>
-                <h3 style="margin:12px 0;color:var(--success);">连接成功！</h3>
-                <div style="text-align:left;background:var(--bg-input);padding:16px;border-radius:8px;font-size:14px;">
-                    <p>数据库类型：${escapeHtml(db.type === 'dm' ? '达梦 DM' : db.type === 'mysql' ? 'MySQL' : '自定义')}</p>
-                    <p>服务器：${escapeHtml(db.host)}:${escapeHtml(db.port)}</p>
-                    <p>数据库名：${escapeHtml(db.databaseName)}</p>
+                <div class="result-card">
+                    <div class="result-icon success">✓</div>
+                    <div class="result-title">连接成功</div>
+                    <div class="result-copy">数据库连接信息已通过校验，可以继续加载表列表。</div>
+                    <div class="result-panel">
+                        <div class="result-list">
+                            <p><span>数据库类型</span><strong>${escapeHtml(db.type === 'dm' ? '达梦 DM' : db.type === 'mysql' ? 'MySQL' : '自定义')}</strong></p>
+                            <p><span>服务器</span><strong>${escapeHtml(db.host)}:${escapeHtml(db.port)}</strong></p>
+                            <p><span>数据库名</span><strong>${escapeHtml(db.databaseName || '-')}</strong></p>
+                        </div>
+                    </div>
                 </div>`;
         } else {
             body.innerHTML = `
-                <div style="font-size:48px;color:var(--error);">✗</div>
-                <h3 style="margin:12px 0;color:var(--error);">连接失败</h3>
-                <div style="text-align:left;background:var(--bg-input);padding:16px;border-radius:8px;font-size:14px;">
-                    <p>${escapeHtml(data.message)}</p>
-                    <p style="margin-top:8px;color:var(--text-secondary);">请检查：</p>
-                    <ul style="padding-left:20px;color:var(--text-secondary);"><li>主机地址和端口是否正确</li><li>数据库服务是否已启动</li><li>防火墙是否放行对应端口</li></ul>
+                <div class="result-card">
+                    <div class="result-icon error">✗</div>
+                    <div class="result-title">连接失败</div>
+                    <div class="result-copy">当前配置未通过校验，请根据提示检查连接参数。</div>
+                    <div class="result-panel">
+                        <div class="result-list">
+                            <p><span>错误信息</span><strong>${escapeHtml(data.message)}</strong></p>
+                            <ul>
+                                <li>主机地址和端口是否正确</li>
+                                <li>数据库服务是否已启动</li>
+                                <li>防火墙是否放行对应端口</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>`;
         }
     } catch (e) {
-        body.innerHTML = `<div style="font-size:48px;color:var(--error);">✗</div><h3 style="margin:12px 0;color:var(--error);">连接失败</h3><p>网络错误: ${escapeHtml(e.message)}</p>`;
+        body.innerHTML = `
+            <div class="result-card">
+                <div class="result-icon error">✗</div>
+                <div class="result-title">连接失败</div>
+                <div class="result-copy">网络请求未成功返回，请稍后重试。</div>
+                <div class="result-panel">
+                    <div class="result-list">
+                        <p><span>网络错误</span><strong>${escapeHtml(e.message)}</strong></p>
+                    </div>
+                </div>
+            </div>`;
     }
 }
 
@@ -160,7 +198,7 @@ function renderTableList(filter) {
     let tables = dbTables;
     if (filter) tables = tables.filter(t => t.tableName.toLowerCase().includes(filter.toLowerCase()));
     if (tables.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px;">无匹配的表</p>';
+        container.innerHTML = '<p class="placeholder-note">无匹配的表</p>';
         return;
     }
     let html = '<table class="data-table"><thead><tr><th style="width:40px;"></th><th>表名</th><th>记录数</th></tr></thead><tbody>';
@@ -203,15 +241,13 @@ async function validateSql() {
         });
         const data = await res.json();
         if (data.success && data.data.details) {
-            let html = '';
-            data.data.details.forEach(d => {
+            resultDiv.innerHTML = data.data.details.map(d => {
+                const status = d.valid ? 'success' : 'error';
                 const icon = d.valid ? '✓' : '✗';
-                const color = d.valid ? 'var(--success)' : 'var(--error)';
-                html += `<div style="color:${color};margin:4px 0;">${icon} 第${d.line}行: ${escapeHtml(d.tableName)} - ${escapeHtml(d.message)}</div>`;
-            });
-            resultDiv.innerHTML = html;
+                return `<div class="validation-row ${status}"><span class="validation-icon">${icon}</span><span>第${d.line}行: ${escapeHtml(d.tableName)} - ${escapeHtml(d.message)}</span></div>`;
+            }).join('');
         }
-    } catch (e) { resultDiv.innerHTML = '<div style="color:var(--error);">验证失败: ' + e.message + '</div>'; }
+    } catch (e) { resultDiv.innerHTML = `<div class="validation-row error"><span class="validation-icon">✗</span><span>验证失败: ${escapeHtml(e.message)}</span></div>`; }
 }
 
 /* ====== Export ====== */
@@ -278,6 +314,7 @@ async function startExport() {
             document.getElementById('progressSection').style.display = '';
             document.getElementById('progressBar').style.width = '0%';
             document.getElementById('logPanel').innerHTML = '';
+            document.getElementById('cancelBtn').style.display = '';
             startProgressMonitor();
             showToast('success', '导出已启动', '任务ID: ' + currentTaskId);
         } else {
@@ -356,16 +393,21 @@ async function cancelExport() {
 function showExportResult(p) {
     const body = document.getElementById('exportResultBody');
     body.innerHTML = `
-        <div style="font-size:48px;color:var(--success);">✓</div>
-        <h3 style="margin:12px 0;color:var(--success);">导出成功！</h3>
-        <div style="text-align:left;background:var(--bg-input);padding:16px;border-radius:8px;font-size:14px;line-height:2;">
-            <p>导出表数：<strong>${escapeHtml(p.totalTables)}</strong> 个</p>
-            <p>成功：<strong style="color:var(--success);">${escapeHtml(p.successCount)}</strong> 个</p>
-            <p>失败：<strong style="color:${p.failCount > 0 ? 'var(--error)' : 'var(--text-primary)'};">${escapeHtml(p.failCount)}</strong> 个</p>
-            <p>总数据量：<strong>${escapeHtml(p.totalRows.toLocaleString())}</strong> 条</p>
-            <p>文件大小：<strong>${(p.fileSize / 1024 / 1024).toFixed(1)}</strong> MB</p>
-            <p>耗时：<strong>${formatTime(p.elapsedTime)}</strong></p>
-            <p style="margin-top:8px;word-break:break-all;">文件名：${escapeHtml(p.fileName)}</p>
+        <div class="result-card">
+            <div class="result-icon success">✓</div>
+            <div class="result-title">导出成功</div>
+            <div class="result-copy">任务已完成，结果文件可以立即下载。</div>
+            <div class="result-panel">
+                <div class="result-list">
+                    <p><span>导出表数</span><strong>${escapeHtml(p.totalTables)} 个</strong></p>
+                    <p><span>成功表数</span><strong>${escapeHtml(p.successCount)} 个</strong></p>
+                    <p><span>失败表数</span><strong>${escapeHtml(p.failCount)} 个</strong></p>
+                    <p><span>总数据量</span><strong>${escapeHtml(p.totalRows.toLocaleString())} 条</strong></p>
+                    <p><span>文件大小</span><strong>${(p.fileSize / 1024 / 1024).toFixed(1)} MB</strong></p>
+                    <p><span>总耗时</span><strong>${formatTime(p.elapsedTime)}</strong></p>
+                    <p class="result-note"><span>文件名</span><strong>${escapeHtml(p.fileName)}</strong></p>
+                </div>
+            </div>
         </div>`;
     document.getElementById('downloadResultBtn').onclick = () => downloadFile(p.fileName);
     openModal('exportResultModal');
@@ -427,11 +469,13 @@ function renderTemplates() {
         <tr>
             <td><input type="checkbox" class="checkbox template-check" data-id="${t.id}"></td>
             <td>${escapeHtml(t.name)}</td>
-            <td style="color:var(--text-secondary);">${escapeHtml(t.description || '-')}</td>
+            <td class="helper-text">${escapeHtml(t.description || '-')}</td>
             <td>${t.createTime ? new Date(t.createTime).toLocaleString() : '-'}</td>
             <td>
-                <button class="btn btn-sm btn-secondary" onclick="loadTemplateConfig(${t.id})">加载</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${t.id}, '${escapeAttr(t.name)}')">删除</button>
+                <div class="table-inline-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="loadTemplateConfig(${t.id})">加载</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${t.id}, '${escapeAttr(t.name)}')">删除</button>
+                </div>
             </td>
         </tr>`).join('');
 }
@@ -550,7 +594,7 @@ async function loadSelectedTemplate() {
 function applyConfig(config) {
     if (config.exportType) {
         const modeMap = {customTables: 0, selectTables: 1, customSql: 2};
-        const btns = document.querySelectorAll('#page-export .section:nth-child(2) .nav-tab');
+        const btns = document.querySelectorAll('#page-export .mode-tab');
         btns.forEach(b => b.classList.remove('active'));
         const idx = modeMap[config.exportType] || 0;
         if (btns[idx]) { btns[idx].classList.add('active'); switchMode(btns[idx], config.exportType); }
@@ -613,13 +657,15 @@ function renderExportFiles(files) {
     tbody.innerHTML = files.map(f => `
         <tr>
             <td><input type="checkbox" class="checkbox file-check" data-name="${escapeAttr(f.fileName)}"></td>
-            <td style="word-break:break-all;">${escapeHtml(f.fileName)}</td>
+            <td class="result-note">${escapeHtml(f.fileName)}</td>
             <td>${(f.fileSize / 1024 / 1024).toFixed(1)} MB</td>
             <td>${f.createTime ? new Date(f.createTime).toLocaleString() : '-'}</td>
-            <td><span style="color:var(--success);">${escapeHtml(f.status)}</span></td>
+            <td>${renderStatusPill(f.status)}</td>
             <td>
-                <button class="btn btn-sm btn-primary" onclick="downloadFile('${escapeAttr(f.fileName)}')">下载</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteFile('${escapeAttr(f.fileName)}')">删除</button>
+                <div class="table-inline-actions">
+                    <button class="btn btn-sm btn-primary" onclick="downloadFile('${escapeAttr(f.fileName)}')">下载</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteFile('${escapeAttr(f.fileName)}')">删除</button>
+                </div>
             </td>
         </tr>`).join('');
 }
@@ -661,16 +707,38 @@ async function downloadSelectedFiles() {
     names.forEach(n => downloadFile(n));
 }
 
+function confirmTableSelect() {
+    closeModal('tableSelectModal');
+}
+
 /* ====== Modal Helpers ====== */
-function openModal(id) { document.getElementById(id).classList.add('active'); }
-function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function syncModalState() {
+    document.body.classList.toggle('modal-open', !!document.querySelector('.modal-overlay.active'));
+}
+
+function openModal(id) {
+    document.getElementById(id).classList.add('active');
+    syncModalState();
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+    syncModalState();
+}
 
 function showConfirm(title, message, onConfirm) {
     document.getElementById('confirmTitle').textContent = title;
     document.getElementById('confirmBody').innerHTML = `
-        <div style="font-size:48px;color:var(--warning);margin-bottom:16px;">?</div>
-        <p style="font-size:15px;margin-bottom:8px;">${escapeHtml(message)}</p>
-        <p style="font-size:13px;color:var(--text-muted);">此操作不可撤销。</p>`;
+        <div class="result-card">
+            <div class="result-icon warning">?</div>
+            <div class="result-title">请确认操作</div>
+            <div class="result-copy">${escapeHtml(message)}</div>
+            <div class="result-panel">
+                <div class="result-list">
+                    <p><span>提示</span><strong>此操作不可撤销</strong></p>
+                </div>
+            </div>
+        </div>`;
     const btn = document.getElementById('confirmAction');
     btn.onclick = () => { closeModal('confirmModal'); onConfirm(); };
     openModal('confirmModal');
@@ -682,12 +750,21 @@ function showToast(type, title, message) {
     const icons = {success: '✓', error: '✗', warning: '⚠', info: 'ℹ'};
     const toast = document.createElement('div');
     toast.className = 'toast ' + type;
-    toast.innerHTML = `<span class="toast-icon">${icons[type]||''}</span><div class="toast-content"><div class="toast-title">${escapeHtml(title)}</div>${message ? '<div class="toast-message">' + escapeHtml(message) + '</div>' : ''}</div>`;
+    toast.innerHTML = `<span class="toast-badge">${icons[type]||''}</span><div class="toast-content"><div class="toast-title">${escapeHtml(title)}</div>${message ? '<div class="toast-message">' + escapeHtml(message) + '</div>' : ''}</div>`;
     container.appendChild(toast);
     setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
 /* ====== Utilities ====== */
+function renderStatusPill(status) {
+    const text = escapeHtml(status || '-');
+    const normalized = String(status || '').toUpperCase();
+    let level = 'success';
+    if (normalized.includes('FAIL') || normalized.includes('ERROR') || normalized.includes('失败')) level = 'error';
+    else if (normalized.includes('CANCEL') || normalized.includes('PENDING') || normalized.includes('WAIT') || normalized.includes('取消') || normalized.includes('等待')) level = 'warning';
+    return `<span class="status-pill ${level}">${text}</span>`;
+}
+
 function escapeHtml(str) {
     if (str == null) return '';
     const div = document.createElement('div');
