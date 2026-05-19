@@ -1,4 +1,5 @@
 :root {
+    color-scheme: light;
     --primary: #3468ff;
     --primary-strong: #2b56d8;
     --primary-soft: #e9efff;
@@ -37,6 +38,7 @@
 }
 
 [data-theme="dark"] {
+    color-scheme: dark;
     --primary: #5d88ff;
     --primary-strong: #4270ff;
     --primary-soft: rgba(93, 136, 255, 0.18);
@@ -263,6 +265,12 @@ select.input:focus {
     background: var(--bg-card-strong);
 }
 
+.input::placeholder,
+textarea.input::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+}
+
 textarea.input {
     min-height: 128px;
     resize: vertical;
@@ -314,7 +322,7 @@ textarea.input {
 }
 
 .page-hero {
-    padding: 10px 2px 24px;
+    padding: 0 2px 18px;
 }
 
 .page-eyebrow {
@@ -332,7 +340,6 @@ textarea.input {
 }
 
 .page-title {
-    margin-top: 18px;
     font-size: clamp(30px, 4vw, 44px);
     line-height: 1.08;
     letter-spacing: -0.03em;
@@ -379,7 +386,7 @@ textarea.input {
 }
 
 .connection-grid {
-    grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1.45fr) minmax(92px, 0.55fr) minmax(160px, 1fr) minmax(160px, 1fr) minmax(170px, 1fr);
+    grid-template-columns: minmax(150px, 0.7fr) minmax(180px, 0.82fr) minmax(110px, 0.45fr) repeat(3, minmax(230px, 1fr));
     align-items: end;
 }
 
@@ -398,6 +405,46 @@ textarea.input {
 
 .driver-custom-row {
     margin-top: 16px;
+    grid-template-columns: minmax(280px, 520px);
+}
+
+.driver-upload-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.driver-file-name {
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.driver-upload-status {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.driver-upload-status.success {
+    border-color: rgba(15, 159, 110, 0.24);
+    background: rgba(15, 159, 110, 0.1);
+    color: var(--success);
+}
+
+.driver-upload-status.error {
+    border-color: rgba(212, 76, 76, 0.24);
+    background: rgba(212, 76, 76, 0.12);
+    color: var(--error);
 }
 
 .connection-actions {
@@ -642,11 +689,18 @@ textarea.input {
     border: 1px solid var(--sidebar-border);
     background: rgba(255, 255, 255, 0.04);
     color: var(--sidebar-text);
+    cursor: pointer;
     font-weight: 700;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .sidebar-logout:hover {
     background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-logout:disabled {
+    cursor: wait;
+    opacity: 0.7;
 }
 
 /* Tabs and action bars */
@@ -1321,7 +1375,7 @@ textarea.input {
     width: min(92vw, 720px);
     max-height: 88vh;
     overflow-y: auto;
-    background: rgba(255, 255, 255, 0.98);
+    background: var(--bg-card-strong);
     border: 1px solid rgba(221, 229, 244, 0.8);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
@@ -1397,7 +1451,7 @@ textarea.input {
     gap: 10px;
     padding: 18px 24px 22px;
     border-top: 1px solid var(--border);
-    background: rgba(245, 248, 254, 0.72);
+    background: var(--bg-subtle);
 }
 
 .modal-form-group {
@@ -1539,7 +1593,7 @@ textarea.input {
     padding: 15px 16px;
     border-radius: 18px;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.96);
+    background: var(--bg-card-strong);
     box-shadow: var(--shadow-md);
     backdrop-filter: blur(18px);
     animation: slideIn 0.22s ease;
@@ -1681,10 +1735,10 @@ textarea.input {
 }
 
 .login-shell {
-    width: min(1280px, 100%);
+    width: min(1360px, 100%);
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(380px, 0.82fr);
-    gap: 48px;
+    grid-template-columns: minmax(0, 1fr) minmax(480px, 0.92fr);
+    gap: 64px;
     align-items: center;
 }
 
@@ -1747,14 +1801,14 @@ textarea.input {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
-    margin-top: 40px;
+    margin-top: 36px;
 }
 
 .login-feature-card {
     padding: 24px 20px;
     border-radius: 22px;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--bg-card);
     box-shadow: var(--shadow-sm);
 }
 
@@ -1771,12 +1825,13 @@ textarea.input {
 }
 
 .login-card {
-    max-width: 480px;
+    width: 100%;
+    max-width: 560px;
     margin-left: auto;
-    padding: 40px 36px;
+    padding: 44px 42px;
     border-radius: 30px;
     border: 1px solid rgba(221, 229, 244, 0.84);
-    background: rgba(255, 255, 255, 0.96);
+    background: var(--bg-card-strong);
     box-shadow: var(--shadow-lg);
     backdrop-filter: blur(18px);
 }
@@ -1816,7 +1871,7 @@ textarea.input {
 .login-meta-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 12px;
     color: var(--text-secondary);
     font-size: 13px;
@@ -1840,12 +1895,38 @@ textarea.input {
 }
 
 /* Dark theme adjustments */
+[data-theme="dark"] body.app-shell {
+    background: linear-gradient(180deg, #081120 0%, var(--bg-page) 56%, #0b1424 100%);
+}
+
+[data-theme="dark"] body.login-body {
+    background: linear-gradient(180deg, #081120 0%, #0b1424 52%, #0d1627 100%);
+}
+
+[data-theme="dark"] body.app-shell::before,
+[data-theme="dark"] body.login-body::before {
+    background:
+        radial-gradient(circle at top left, rgba(93, 136, 255, 0.16), transparent 32%),
+        radial-gradient(circle at 88% 10%, rgba(39, 196, 139, 0.1), transparent 24%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.18), transparent 45%);
+}
+
 [data-theme="dark"] .card,
 [data-theme="dark"] .modal,
 [data-theme="dark"] .toast,
 [data-theme="dark"] .login-card,
 [data-theme="dark"] .login-feature-card {
     border-color: rgba(42, 58, 92, 0.92);
+}
+
+[data-theme="dark"] .input,
+[data-theme="dark"] select.input {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .input:focus,
+[data-theme="dark"] select.input:focus {
+    background: #101a2d;
 }
 
 [data-theme="dark"] .page-eyebrow,
@@ -1885,8 +1966,21 @@ textarea.input {
     background: rgba(24, 36, 58, 0.92);
 }
 
+[data-theme="dark"] .mode-tab:hover {
+    background: rgba(24, 36, 58, 0.92);
+}
+
+[data-theme="dark"] .mode-tab.active {
+    color: #c9d7ff;
+    background: rgba(24, 36, 58, 0.96);
+}
+
 [data-theme="dark"] .data-table tbody tr:hover td {
     background: rgba(24, 36, 58, 0.92);
+}
+
+[data-theme="dark"] .progress-stat {
+    box-shadow: none;
 }
 
 [data-theme="dark"] .progress-bar {

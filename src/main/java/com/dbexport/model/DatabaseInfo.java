@@ -1,5 +1,6 @@
 package com.dbexport.model;
 
+import com.dbexport.util.DatabaseDialect;
 import lombok.Data;
 
 @Data
@@ -12,33 +13,43 @@ public class DatabaseInfo {
     private String password;
     private String driverClass;
     private String url;
+    private String customDriverId;
+    private String detectedType;
+    private String dialect;
+    private String databaseProductName;
+    private String databaseProductVersion;
+    private String jdbcDriverName;
+    private String jdbcDriverVersion;
     private Integer maxConnections;
 
     public String buildUrl() {
         if (url != null && !url.isEmpty()) {
-            if ("dm".equalsIgnoreCase(type) && !url.contains("characterEncoding")) {
+            if (resolveDialect().isDm() && !url.contains("characterEncoding")) {
                 return url + (url.contains("?") ? "&" : "?") + "characterEncoding=utf-8";
             }
             return url;
         }
-        if ("dm".equalsIgnoreCase(type)) {
-            return "jdbc:dm://" + host + ":" + port + "/" + databaseName + "?characterEncoding=utf-8";
-        } else if ("mysql".equalsIgnoreCase(type)) {
-            return "jdbc:mysql://" + host + ":" + port + "/" + databaseName + "?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai";
-        } else {
-            return url;
-        }
+        return resolveDialect().buildJdbcUrl(host, port, databaseName);
     }
 
     public String resolveDriverClass() {
         if (driverClass != null && !driverClass.isEmpty()) {
             return driverClass;
         }
-        if ("dm".equalsIgnoreCase(type)) {
-            return "dm.jdbc.driver.DmDriver";
-        } else if ("mysql".equalsIgnoreCase(type)) {
-            return "com.mysql.cj.jdbc.Driver";
+        return resolveDialect().getDefaultDriverClass();
+    }
+
+    public DatabaseDialect resolveDialect() {
+        if (dialect != null && !dialect.trim().isEmpty()) {
+            return DatabaseDialect.fromType(dialect);
         }
-        return driverClass;
+        if (detectedType != null && !detectedType.trim().isEmpty()) {
+            return DatabaseDialect.fromType(detectedType);
+        }
+        return DatabaseDialect.fromType(type);
+    }
+
+    public boolean hasCustomDriver() {
+        return customDriverId != null && !customDriverId.trim().isEmpty();
     }
 }

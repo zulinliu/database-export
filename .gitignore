@@ -7,6 +7,7 @@ target/
 /templates/
 /logs/
 /temp/
+/drivers/
 
 *.log
 *.pid

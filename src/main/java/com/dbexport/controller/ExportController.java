@@ -2,6 +2,7 @@ package com.dbexport.controller;
 
 import com.dbexport.config.SecurityConfigProperties;
 import com.dbexport.model.*;
+import com.dbexport.service.CustomJdbcDriverRegistry;
 import com.dbexport.service.ExportService;
 import com.dbexport.service.TemplateService;
 import com.dbexport.util.SqlValidator;
@@ -36,6 +37,9 @@ public class ExportController {
     @Autowired
     private SecurityConfigProperties securityConfig;
 
+    @Autowired
+    private CustomJdbcDriverRegistry customJdbcDriverRegistry;
+
     // ====== 认证接口 ======
 
     @PostMapping("/login")
@@ -69,12 +73,22 @@ public class ExportController {
 
     // ====== 数据库连接 ======
 
+    @PostMapping("/database/driver/upload")
+    public ApiResponse<DatabaseDriverInfo> uploadDatabaseDriver(@RequestParam("file") MultipartFile file) {
+        try {
+            return ApiResponse.ok("驱动上传成功", customJdbcDriverRegistry.uploadDriver(file));
+        } catch (Exception e) {
+            return ApiResponse.error("驱动上传失败: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/database/connect")
-    public ApiResponse<String> connectDatabase(@RequestBody DatabaseInfo dbInfo) {
+    public ApiResponse<DatabaseInfo> connectDatabase(@RequestBody DatabaseInfo dbInfo) {
         try {
             if (exportService.testConnection(dbInfo)) {
                 if (exportService.connectDatabase(dbInfo)) {
-                    return ApiResponse.ok("数据库连接成功", null);
+                    dbInfo.setPassword(null);
+                    return ApiResponse.ok("数据库连接成功", dbInfo);
                 }
                 return ApiResponse.error("连接池初始化失败");
             }

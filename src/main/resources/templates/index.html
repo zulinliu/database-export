@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据库导出工具</title>
-    <link rel="stylesheet" href="/css/style.css?v=20260519-ui2">
+    <link rel="stylesheet" href="/css/style.css?v=20260519-ui4">
 </head>
 <body class="app-shell">
     <!-- Sidebar -->
@@ -73,7 +73,7 @@
                     <span id="themeIcon">🌙</span>
                 </button>
             </div>
-            <button class="sidebar-logout" onclick="logout()">退出登录</button>
+            <button class="sidebar-logout" id="logoutBtn" type="button">退出登录</button>
         </div>
     </aside>
 
@@ -84,9 +84,7 @@
     <div class="page-container" id="page-export">
         <section class="page-hero">
             <div>
-                <div class="page-eyebrow">Workspace</div>
                 <h1 class="page-title">数据导出工作台</h1>
-                <p class="page-description">保留原有导出能力不变，优化配置阅读、操作密度与反馈层级。</p>
             </div>
         </section>
         <!-- DB Connection -->
@@ -128,12 +126,16 @@
             </div>
             <div id="driverCustomRow" class="form-grid driver-custom-row" style="display:none;">
                 <div class="form-group">
-                    <label>驱动类名</label>
-                    <input class="input" id="dbDriver" placeholder="com.example.Driver">
-                </div>
-                <div class="form-group">
-                    <label>JDBC URL</label>
-                    <input class="input" id="dbUrl" placeholder="jdbc:xxx://host:port/db">
+                    <label>数据库驱动包</label>
+                    <div class="driver-upload-control">
+                        <button class="btn btn-secondary" type="button" onclick="document.getElementById('dbDriverFile').click()">上传 JDBC 驱动包</button>
+                        <span class="driver-file-name" id="driverFileName">未选择文件</span>
+                    </div>
+                    <input type="file" id="dbDriverFile" class="hidden-input" accept=".jar" onchange="uploadCustomDriver(event)">
+                    <input type="hidden" id="customDriverId">
+                    <input type="hidden" id="detectedDbType">
+                    <input type="hidden" id="detectedDialect">
+                    <div class="driver-upload-status" id="driverUploadStatus">选择数据库 JDBC 驱动 jar，系统会自动识别驱动和方言。</div>
                 </div>
             </div>
         </div>
@@ -348,9 +350,7 @@
     <div class="page-container" id="page-templates" style="display:none;">
         <section class="page-hero">
             <div>
-                <div class="page-eyebrow">Templates</div>
                 <h1 class="page-title">模板管理</h1>
-                <p class="page-description">统一管理常用导出配置，减少重复输入并保持导出标准一致。</p>
             </div>
         </section>
         <div class="card">
@@ -402,9 +402,7 @@
     <div class="page-container" id="page-records" style="display:none;">
         <section class="page-hero">
             <div>
-                <div class="page-eyebrow">Records</div>
                 <h1 class="page-title">导出记录</h1>
-                <p class="page-description">集中查看历史导出结果，快速完成下载、删除与批量清理。</p>
             </div>
         </section>
         <div class="card">
@@ -514,6 +512,6 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="/js/main.js?v=20260519-ui2"></script>
+    <script src="/js/main.js?v=20260519-ui4"></script>
 </body>
 </html>

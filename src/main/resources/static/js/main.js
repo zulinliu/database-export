@@ -8,6 +8,7 @@ let currentTaskId = null;
 let progressInterval = null;
 let poolInterval = null;
 let templates = [];
+let customDriverInfo = null;
 
 /* ====== Init ====== */
 document.addEventListener('DOMContentLoaded', () => {
@@ -23,6 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
 const themeToggleBtn = document.getElementById('themeToggle');
 if (themeToggleBtn) {
     themeToggleBtn.addEventListener('click', toggleTheme);
+}
+
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
 }
 
 function toggleTheme() {
@@ -49,8 +55,18 @@ function checkLogin() {
     }).catch(() => { window.location.href = '/login.html'; });
 }
 
-function logout() {
-    fetch('/api/logout', {method: 'POST'}).then(() => { window.location.href = '/login.html'; });
+async function logout() {
+    if (logoutBtn) {
+        logoutBtn.disabled = true;
+        logoutBtn.textContent = '退出中...';
+    }
+    try {
+        await fetch('/api/logout', {method: 'POST', credentials: 'same-origin'});
+    } catch (e) {
+        console.error(e);
+    } finally {
+        window.location.href = '/login.html';
+    }
 }
 
 /* ====== Page Navigation ====== */
@@ -81,23 +97,104 @@ function onDbTypeChange() {
     const port = document.getElementById('dbPort');
     if (type === 'dm') port.value = 5236;
     else if (type === 'mysql') port.value = 3306;
+    if (type !== 'custom') {
+        document.getElementById('detectedDbType').value = type;
+        document.getElementById('detectedDialect').value = type;
+    } else if (customDriverInfo && customDriverInfo.defaultPort) {
+        port.value = customDriverInfo.defaultPort;
+    }
 }
 
 /* ====== Connection ====== */
 function getDbInfo() {
+    const type = document.getElementById('dbType').value;
+    const isCustom = type === 'custom';
     return {
-        type: document.getElementById('dbType').value,
+        type,
         host: document.getElementById('dbHost').value,
         port: parseInt(document.getElementById('dbPort').value),
         databaseName: document.getElementById('dbName').value,
         username: document.getElementById('dbUser').value,
         password: document.getElementById('dbPass').value,
-        driverClass: document.getElementById('dbDriver').value,
-        url: document.getElementById('dbUrl').value
+        customDriverId: isCustom ? document.getElementById('customDriverId').value : '',
+        detectedType: isCustom ? document.getElementById('detectedDbType').value : type,
+        dialect: isCustom ? document.getElementById('detectedDialect').value : type
     };
 }
 
+function validateDbInfo(dbInfo) {
+    if (dbInfo.type === 'custom' && !dbInfo.customDriverId) {
+        return '请先上传数据库 JDBC 驱动包';
+    }
+    if (dbInfo.type === 'custom' && (!dbInfo.dialect || dbInfo.dialect === 'custom')) {
+        return '当前驱动包未识别出支持的数据库类型，无法仅凭连接信息生成 JDBC URL';
+    }
+    if (!dbInfo.host || !dbInfo.port || !dbInfo.databaseName || !dbInfo.username) {
+        return '请完整填写主机地址、端口、数据库名和用户名';
+    }
+    return '';
+}
+
+async function uploadCustomDriver(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const fileNameEl = document.getElementById('driverFileName');
+    const statusEl = document.getElementById('driverUploadStatus');
+    fileNameEl.textContent = file.name;
+    statusEl.className = 'driver-upload-status';
+    statusEl.textContent = '正在上传并识别驱动包...';
+
+    if (!file.name.toLowerCase().endsWith('.jar')) {
+        customDriverInfo = null;
+        document.getElementById('customDriverId').value = '';
+        statusEl.className = 'driver-upload-status error';
+        statusEl.textContent = '仅支持上传 .jar 格式的 JDBC 驱动包。';
+        showToast('error', '驱动上传失败', '仅支持 .jar 文件');
+        event.target.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const res = await fetch('/api/database/driver/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success) {
+            throw new Error(data.message || '驱动上传失败');
+        }
+        customDriverInfo = data.data;
+        document.getElementById('customDriverId').value = customDriverInfo.id || '';
+        document.getElementById('detectedDbType').value = customDriverInfo.detectedType || '';
+        document.getElementById('detectedDialect').value = customDriverInfo.detectedDialect || customDriverInfo.detectedType || '';
+        if (customDriverInfo.defaultPort) {
+            document.getElementById('dbPort').value = customDriverInfo.defaultPort;
+        }
+        const knownDialect = customDriverInfo.detectedDialect && customDriverInfo.detectedDialect !== 'custom';
+        statusEl.className = knownDialect ? 'driver-upload-status success' : 'driver-upload-status error';
+        statusEl.textContent = `${customDriverInfo.message || '驱动已上传'}，驱动类：${customDriverInfo.driverClassName}`;
+        showToast(knownDialect ? 'success' : 'warning', knownDialect ? '驱动识别成功' : '驱动已上传但未识别方言',
+            customDriverInfo.displayName || customDriverInfo.driverClassName);
+    } catch (e) {
+        customDriverInfo = null;
+        document.getElementById('customDriverId').value = '';
+        document.getElementById('detectedDbType').value = '';
+        document.getElementById('detectedDialect').value = '';
+        statusEl.className = 'driver-upload-status error';
+        statusEl.textContent = e.message;
+        showToast('error', '驱动上传失败', e.message);
+    } finally {
+        event.target.value = '';
+    }
+}
+
 async function testConnection() {
+    const dbInfo = getDbInfo();
+    const validationMessage = validateDbInfo(dbInfo);
+    if (validationMessage) {
+        showToast('error', '连接失败', validationMessage);
+        return;
+    }
     const body = document.getElementById('connectionTestBody');
     body.innerHTML = `
         <div class="result-card">
@@ -109,7 +206,7 @@ async function testConnection() {
     try {
         const res = await fetch('/api/database/connect', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(getDbInfo())
+            body: JSON.stringify(dbInfo)
         });
         const data = await res.json();
         if (data.success) {
@@ -161,16 +258,23 @@ async function testConnection() {
 }
 
 async function connectDatabase() {
+    const dbInfo = getDbInfo();
+    const validationMessage = validateDbInfo(dbInfo);
+    if (validationMessage) {
+        showToast('error', '连接失败', validationMessage);
+        return;
+    }
     try {
         const res = await fetch('/api/database/connect', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(getDbInfo())
+            body: JSON.stringify(dbInfo)
         });
         const data = await res.json();
         if (data.success) {
             connected = true;
             document.getElementById('connDot').classList.add('connected');
-            document.getElementById('connText').textContent = document.getElementById('dbName').value || '已连接';
+            const detected = data.data && (data.data.databaseProductName || data.data.detectedType);
+            document.getElementById('connText').textContent = document.getElementById('dbName').value || detected || '已连接';
             showToast('success', '连接成功', '数据库连接已建立');
             loadTableList();
             startPoolMonitor();
@@ -355,8 +459,11 @@ function buildExportConfig() {
         dbName: dbInfo.databaseName,
         dbUser: dbInfo.username,
         dbPass: dbInfo.password,
-        dbDriver: dbInfo.driverClass,
-        dbUrl: dbInfo.url,
+        customDriverId: dbInfo.customDriverId,
+        detectedType: dbInfo.detectedType,
+        dialect: dbInfo.dialect,
+        driverClassName: customDriverInfo ? customDriverInfo.driverClassName : '',
+        driverDisplayName: customDriverInfo ? customDriverInfo.displayName : '',
         sqlFileMode: document.querySelector('input[name="sqlFileMode"]:checked').value
     };
 
@@ -714,8 +821,15 @@ function applyConfig(config) {
     if (config.dbName) document.getElementById('dbName').value = config.dbName;
     if (config.dbUser) document.getElementById('dbUser').value = config.dbUser;
     if (config.dbPass) document.getElementById('dbPass').value = config.dbPass;
-    if (config.dbDriver) document.getElementById('dbDriver').value = config.dbDriver;
-    if (config.dbUrl) document.getElementById('dbUrl').value = config.dbUrl;
+    if (config.customDriverId) {
+        document.getElementById('customDriverId').value = config.customDriverId;
+        document.getElementById('detectedDbType').value = config.detectedType || '';
+        document.getElementById('detectedDialect').value = config.dialect || config.detectedType || '';
+        document.getElementById('driverFileName').textContent = config.driverDisplayName || '已加载模板驱动引用';
+        const statusEl = document.getElementById('driverUploadStatus');
+        statusEl.className = 'driver-upload-status';
+        statusEl.textContent = '模板包含历史驱动引用；如果连接失败，请重新上传 JDBC 驱动包。';
+    }
     if (config.sqlFileMode) {
         const radio = document.querySelector(`input[name="sqlFileMode"][value="${config.sqlFileMode}"]`);
         if (radio) radio.checked = true;

@@ -2,7 +2,9 @@ package com.dbexport.service.impl;
 
 import com.dbexport.config.ExportConfigProperties;
 import com.dbexport.model.*;
+import com.dbexport.service.CustomJdbcDriverRegistry;
 import com.dbexport.service.ExportService;
+import com.dbexport.util.DatabaseDialect;
 import com.dbexport.util.SqlSafeUtils;
 import com.dbexport.util.SqlValidator;
 import com.zaxxer.hikari.HikariConfig;
@@ -40,6 +42,9 @@ public class ExportServiceImpl implements ExportService {
     @Autowired
     private ApplicationContext applicationContext;
 
+    @Autowired
+    private CustomJdbcDriverRegistry customJdbcDriverRegistry;
+
     private HikariDataSource dataSource;
     private DatabaseInfo currentDbInfo;
     private final Map<String, ExportProgress> progressMap = new ConcurrentHashMap<>();
@@ -50,11 +55,11 @@ public class ExportServiceImpl implements ExportService {
     public boolean testConnection(DatabaseInfo dbInfo) {
         Connection conn = null;
         try {
-            Class.forName(dbInfo.resolveDriverClass());
-            conn = DriverManager.getConnection(dbInfo.buildUrl(), dbInfo.getUsername(), dbInfo.getPassword());
-            conn.setReadOnly(true);
+            String jdbcUrl = resolveJdbcUrl(dbInfo);
+            conn = openRawConnection(dbInfo, jdbcUrl);
+            setReadOnlyQuietly(conn);
             try (Statement stmt = conn.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT 1")) {
+                 ResultSet rs = stmt.executeQuery(dbInfo.resolveDialect().getConnectionTestQuery())) {
                 return rs.next();
             }
         } catch (Exception e) {
@@ -73,8 +78,14 @@ public class ExportServiceImpl implements ExportService {
 
         try {
             HikariConfig hc = new HikariConfig();
-            hc.setDriverClassName(dbInfo.resolveDriverClass());
-            hc.setJdbcUrl(dbInfo.buildUrl());
+            String jdbcUrl = resolveJdbcUrl(dbInfo);
+            DatabaseDialect dialect = dbInfo.resolveDialect();
+            if (dbInfo.hasCustomDriver()) {
+                hc.setDataSource(customJdbcDriverRegistry.createDataSource(dbInfo, jdbcUrl));
+            } else {
+                hc.setDriverClassName(dbInfo.resolveDriverClass());
+                hc.setJdbcUrl(jdbcUrl);
+            }
             hc.setUsername(dbInfo.getUsername());
             hc.setPassword(dbInfo.getPassword());
             hc.setMaximumPoolSize(dbInfo.getMaxConnections() != null ? dbInfo.getMaxConnections() : 10);
@@ -84,17 +95,18 @@ public class ExportServiceImpl implements ExportService {
             hc.setMaxLifetime(7200000);
             hc.setLeakDetectionThreshold(60000);
             hc.setReadOnly(true);
-            hc.setConnectionTestQuery("SELECT 1");
-            if ("dm".equalsIgnoreCase(dbInfo.getType())) {
+            hc.setConnectionTestQuery(dialect.getConnectionTestQuery());
+            if (dialect.isDm()) {
                 hc.addDataSourceProperty("characterEncoding", "utf-8");
             }
 
             dataSource = new HikariDataSource(hc);
-            currentDbInfo = dbInfo;
             columnCache.clear();
 
             try (Connection conn = dataSource.getConnection()) {
-                log.info("数据库连接成功: {}", dbInfo.buildUrl());
+                applyDetectedMetadata(dbInfo, conn);
+                currentDbInfo = dbInfo;
+                log.info("数据库连接成功: {}", jdbcUrl);
             }
             return true;
         } catch (Exception e) {
@@ -106,6 +118,54 @@ public class ExportServiceImpl implements ExportService {
         }
     }
 
+    private String resolveJdbcUrl(DatabaseInfo dbInfo) {
+        if (dbInfo.hasCustomDriver()) {
+            if (dbInfo.resolveDialect() == DatabaseDialect.GENERIC) {
+                throw new IllegalArgumentException("无法识别该驱动包的 JDBC URL 规则，请上传已支持的 DM、金仓、MySQL、PostgreSQL、Oracle 或 SQL Server 驱动");
+            }
+        }
+        String jdbcUrl = dbInfo.buildUrl();
+        if (jdbcUrl == null || jdbcUrl.trim().isEmpty()) {
+            throw new IllegalArgumentException("无法根据当前数据库类型生成 JDBC URL，请检查驱动包识别结果和连接信息");
+        }
+        return jdbcUrl;
+    }
+
+    private Connection openRawConnection(DatabaseInfo dbInfo, String jdbcUrl) throws Exception {
+        if (dbInfo.hasCustomDriver()) {
+            return customJdbcDriverRegistry.openConnection(dbInfo, jdbcUrl);
+        }
+        String driverClass = dbInfo.resolveDriverClass();
+        if (driverClass == null || driverClass.trim().isEmpty()) {
+            throw new IllegalArgumentException("未识别到可用 JDBC 驱动");
+        }
+        Class.forName(driverClass);
+        return DriverManager.getConnection(jdbcUrl, dbInfo.getUsername(), dbInfo.getPassword());
+    }
+
+    private void applyDetectedMetadata(DatabaseInfo dbInfo, Connection conn) throws SQLException {
+        DatabaseMetaData meta = conn.getMetaData();
+        String productName = meta.getDatabaseProductName();
+        String productVersion = meta.getDatabaseProductVersion();
+        String driverName = meta.getDriverName();
+        String driverVersion = meta.getDriverVersion();
+        DatabaseDialect detectedDialect = DatabaseDialect.fromMetadata(productName, productVersion, driverName,
+                dbInfo.resolveDialect().getType());
+        dbInfo.setDetectedType(detectedDialect.getType());
+        dbInfo.setDialect(detectedDialect.getType());
+        dbInfo.setDatabaseProductName(productName);
+        dbInfo.setDatabaseProductVersion(productVersion);
+        dbInfo.setJdbcDriverName(driverName);
+        dbInfo.setJdbcDriverVersion(driverVersion);
+    }
+
+    private void setReadOnlyQuietly(Connection conn) {
+        try {
+            conn.setReadOnly(true);
+        } catch (Exception ignored) {
+        }
+    }
+
     @Override
     public List<DatabaseTableInfo> getTableList() {
         if (dataSource == null) {
@@ -114,8 +174,8 @@ public class ExportServiceImpl implements ExportService {
 
         List<DatabaseTableInfo> tables = new ArrayList<>();
         try (Connection conn = dataSource.getConnection()) {
-            String dbType = currentDbInfo != null ? currentDbInfo.getType() : "mysql";
-            if ("dm".equalsIgnoreCase(dbType)) {
+            DatabaseDialect dialect = currentDialect();
+            if (dialect.isDm()) {
                 try (PreparedStatement stmt = conn.prepareStatement(
                         "SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = ? ORDER BY TABLE_NAME")) {
                     stmt.setString(1, currentDbInfo.getUsername().toUpperCase());
@@ -145,7 +205,7 @@ public class ExportServiceImpl implements ExportService {
                     continue;
                 }
                 try (Statement stmt = conn.createStatement();
-                     ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM \"" + tName + "\"")) {
+                     ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + dialect.quoteIdentifier(tName))) {
                     if (rs.next()) {
                         table.setRowCount(rs.getLong(1));
                     }
@@ -158,6 +218,10 @@ public class ExportServiceImpl implements ExportService {
             throw new RuntimeException("获取表列表失败");
         }
         return tables;
+    }
+
+    private DatabaseDialect currentDialect() {
+        return currentDbInfo == null ? DatabaseDialect.MYSQL : currentDbInfo.resolveDialect();
     }
 
     @Override
@@ -356,7 +420,7 @@ public class ExportServiceImpl implements ExportService {
              Statement stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
              ResultSet rs = stmt.executeQuery(querySql)) {
             stmt.setFetchSize(configProps.getFetchSize());
-            conn.setReadOnly(true);
+            setReadOnlyQuietly(conn);
             ResultSetMetaData meta = rs.getMetaData();
             int columnCount = meta.getColumnCount();
             Path csvPath = tempDir.resolve(tableName + ".csv");
@@ -403,10 +467,11 @@ public class ExportServiceImpl implements ExportService {
              Statement stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
              ResultSet rs = stmt.executeQuery(querySql)) {
             stmt.setFetchSize(configProps.getFetchSize());
-            conn.setReadOnly(true);
+            setReadOnlyQuietly(conn);
             ResultSetMetaData meta = rs.getMetaData();
             int columnCount = meta.getColumnCount();
             Path sqlPath = tempDir.resolve(tableName + ".sql");
+            DatabaseDialect dialect = currentDialect();
             try (BufferedWriter writer = Files.newBufferedWriter(sqlPath, StandardCharsets.UTF_8)) {
                 writer.write("-- Table: ");
                 writer.write(tableName);
@@ -414,26 +479,19 @@ public class ExportServiceImpl implements ExportService {
                 StringBuilder cols = new StringBuilder();
                 for (int i = 1; i <= columnCount; i++) {
                     if (i > 1) cols.append(", ");
-                    cols.append("\"").append(meta.getColumnLabel(i)).append("\"");
+                    cols.append(dialect.quoteIdentifier(meta.getColumnLabel(i)));
                 }
                 String colList = cols.toString();
                 while (rs.next()) {
                     if (cancelFlags.get(taskId).get()) break;
-                    writer.write("INSERT INTO \"");
-                    writer.write(tableName);
-                    writer.write("\" (");
+                    writer.write("INSERT INTO ");
+                    writer.write(dialect.quoteIdentifier(tableName));
+                    writer.write(" (");
                     writer.write(colList);
                     writer.write(") VALUES (");
                     for (int i = 1; i <= columnCount; i++) {
                         if (i > 1) writer.write(", ");
-                        String value = rs.getString(i);
-                        if (value == null) {
-                            writer.write("NULL");
-                        } else {
-                            writer.write('\'');
-                            writer.write(value.replace("'", "''"));
-                            writer.write('\'');
-                        }
+                        writer.write(toSqlLiteral(rs, meta, i, dialect));
                     }
                     writer.write(");\n");
                     rowCount++;
@@ -445,6 +503,53 @@ public class ExportServiceImpl implements ExportService {
         return rowCount;
     }
 
+    private String toSqlLiteral(ResultSet rs, ResultSetMetaData meta, int column, DatabaseDialect dialect) throws SQLException {
+        Object value = rs.getObject(column);
+        if (value == null) {
+            return "NULL";
+        }
+        int sqlType = meta.getColumnType(column);
+        switch (sqlType) {
+            case Types.BIGINT:
+            case Types.DECIMAL:
+            case Types.DOUBLE:
+            case Types.FLOAT:
+            case Types.INTEGER:
+            case Types.NUMERIC:
+            case Types.REAL:
+            case Types.SMALLINT:
+            case Types.TINYINT:
+                return value.toString();
+            case Types.BIT:
+            case Types.BOOLEAN:
+                return dialect.toBooleanLiteral(Boolean.TRUE.equals(value) || "1".equals(value.toString()));
+            case Types.DATE:
+                java.sql.Date date = rs.getDate(column);
+                return date == null ? "NULL" : dialect.toDateLiteral(date.toString());
+            case Types.TIMESTAMP:
+            case -101:
+            case -102:
+                Timestamp timestamp = rs.getTimestamp(column);
+                if (timestamp == null) {
+                    return "NULL";
+                }
+                return dialect.toDateLiteral(timestamp.toLocalDateTime()
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            case Types.TIME:
+                Time time = rs.getTime(column);
+                return time == null ? "NULL" : "'" + DatabaseDialect.escapeSql(time.toString()) + "'";
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+            case Types.BLOB:
+                byte[] bytes = rs.getBytes(column);
+                return bytes == null ? "NULL" : dialect.toBinaryLiteral(bytes);
+            default:
+                String text = rs.getString(column);
+                return text == null ? "NULL" : "'" + DatabaseDialect.escapeSql(text) + "'";
+        }
+    }
+
     private Path mergeSqlFiles(Map<String, Path> sqlFiles) throws IOException {
         Path mergedPath = Files.createTempFile("merged_", ".sql");
         try (BufferedWriter writer = Files.newBufferedWriter(mergedPath, StandardCharsets.UTF_8)) {
@@ -453,9 +558,13 @@ public class ExportServiceImpl implements ExportService {
             writer.write("-- Encoding: UTF-8\n");
             writer.write("-- Generated: ");
             writer.write(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            boolean isDm = currentDbInfo != null && "dm".equalsIgnoreCase(currentDbInfo.getType());
-            if (isDm) {
-                writer.write("\n-- Target: DM (达梦) Database");
+            if (currentDbInfo != null) {
+                writer.write("\n-- Target: ");
+                writer.write(currentDbInfo.resolveDialect().getDisplayName());
+                if (currentDbInfo.getDatabaseProductVersion() != null) {
+                    writer.write(" ");
+                    writer.write(currentDbInfo.getDatabaseProductVersion());
+                }
             }
             writer.write("\n\n");
             List<String> sortedTables = new ArrayList<>(sqlFiles.keySet());
@@ -492,9 +601,9 @@ public class ExportServiceImpl implements ExportService {
             throw new RuntimeException("非法表名: " + tableName);
         }
 
-        StringBuilder sql = new StringBuilder("SELECT * FROM \"").append(tableName).append("\"");
+        DatabaseDialect dialect = currentDialect();
+        StringBuilder sql = new StringBuilder("SELECT * FROM ").append(dialect.quoteIdentifier(tableName));
         List<String> conditions = new ArrayList<>();
-        boolean isDm = "dm".equalsIgnoreCase(currentDbInfo.getType());
 
         if (Boolean.TRUE.equals(config.getEnableTimeFilter()) && config.getTimeFieldNames() != null) {
             String[] fieldNames = config.getTimeFieldNames().split("[、,，]");
@@ -502,10 +611,10 @@ public class ExportServiceImpl implements ExportService {
                 field = field.trim();
                 if (!field.isEmpty() && SqlSafeUtils.isValidIdentifier(field) && hasColumn(tableName, field)) {
                     if (config.getStartDate() != null && !config.getStartDate().isEmpty()) {
-                        conditions.add("\"" + field + "\" >= " + toDateLiteral(config.getStartDate(), isDm));
+                        conditions.add(dialect.quoteIdentifier(field) + " >= " + dialect.toDateLiteral(config.getStartDate()));
                     }
                     if (config.getEndDate() != null && !config.getEndDate().isEmpty()) {
-                        conditions.add("\"" + field + "\" <= " + toDateLiteral(config.getEndDate() + " 23:59:59", isDm));
+                        conditions.add(dialect.quoteIdentifier(field) + " <= " + dialect.toDateLiteral(config.getEndDate() + " 23:59:59"));
                     }
                     if (!conditions.isEmpty()) break;
                 }
@@ -516,7 +625,7 @@ public class ExportServiceImpl implements ExportService {
             FieldFilterConfig fc = config.getFieldFilter();
             if (fc.getFieldName() != null && SqlSafeUtils.isValidIdentifier(fc.getFieldName())
                     && hasColumn(tableName, fc.getFieldName())) {
-                String condition = fc.buildCondition();
+                String condition = buildFieldFilterCondition(fc, dialect);
                 if (condition != null) {
                     conditions.add(condition);
                 }
@@ -534,14 +643,37 @@ public class ExportServiceImpl implements ExportService {
         return sql.toString();
     }
 
-    private String toDateLiteral(String dateStr, boolean isDm) {
-        if (isDm) {
-            if (dateStr.length() <= 10) {
-                return "TO_DATE('" + dateStr + "', 'YYYY-MM-DD')";
-            }
-            return "TO_DATE('" + dateStr + "', 'YYYY-MM-DD HH24:MI:SS')";
+    private String buildFieldFilterCondition(FieldFilterConfig fc, DatabaseDialect dialect) {
+        String fieldName = fc.getFieldName();
+        String filterType = fc.getFilterType();
+        String filterValue = fc.getFilterValue();
+        if (fieldName == null || filterValue == null || filterValue.trim().isEmpty()) {
+            return null;
         }
-        return "'" + dateStr + "'";
+        String quotedField = dialect.quoteIdentifier(fieldName);
+        if ("EQUAL".equals(filterType)) {
+            return quotedField + " = '" + DatabaseDialect.escapeSql(filterValue) + "'";
+        }
+        if ("IN".equals(filterType)) {
+            StringBuilder inValues = new StringBuilder();
+            String[] values = filterValue.split(",");
+            for (int i = 0; i < values.length; i++) {
+                if (i > 0) inValues.append(",");
+                inValues.append("'").append(DatabaseDialect.escapeSql(values[i].trim())).append("'");
+            }
+            return quotedField + " IN (" + inValues + ")";
+        }
+        if ("RANGE".equals(filterType)) {
+            String[] range = filterValue.split("-");
+            if (range.length == 2) {
+                String lo = range[0].trim().replaceAll("[^0-9.]", "");
+                String hi = range[1].trim().replaceAll("[^0-9.]", "");
+                if (!lo.isEmpty() && !hi.isEmpty()) {
+                    return quotedField + " >= " + lo + " AND " + quotedField + " <= " + hi;
+                }
+            }
+        }
+        return null;
     }
 
     private final Map<String, Boolean> columnCache = new ConcurrentHashMap<>();
@@ -553,7 +685,7 @@ public class ExportServiceImpl implements ExportService {
 
         try (Connection conn = dataSource.getConnection()) {
             boolean result;
-            if ("dm".equalsIgnoreCase(currentDbInfo.getType())) {
+            if (currentDialect().isDm()) {
                 try (PreparedStatement stmt = conn.prepareStatement(
                         "SELECT COUNT(*) FROM ALL_TAB_COLUMNS WHERE OWNER = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?")) {
                     stmt.setString(1, currentDbInfo.getUsername().toUpperCase());
@@ -565,15 +697,22 @@ public class ExportServiceImpl implements ExportService {
                 }
             } else {
                 DatabaseMetaData meta = conn.getMetaData();
-                try (ResultSet rs = meta.getColumns(conn.getCatalog(), conn.getSchema(), tableName, columnName)) {
-                    result = rs.next();
-                }
+                result = hasColumnByMetadata(meta, conn.getCatalog(), conn.getSchema(), tableName, columnName)
+                        || hasColumnByMetadata(meta, conn.getCatalog(), conn.getSchema(), tableName.toUpperCase(), columnName.toUpperCase())
+                        || hasColumnByMetadata(meta, conn.getCatalog(), conn.getSchema(), tableName.toLowerCase(), columnName.toLowerCase());
             }
             columnCache.put(cacheKey, result);
             return result;
         } catch (Exception e) {
             log.warn("检查列是否存在失败: {}.{}: {}", tableName, columnName, e.getMessage());
             return false;
+        }
+    }
+
+    private boolean hasColumnByMetadata(DatabaseMetaData meta, String catalog, String schema,
+                                        String tableName, String columnName) throws SQLException {
+        try (ResultSet rs = meta.getColumns(catalog, schema, tableName, columnName)) {
+            return rs.next();
         }
     }
 
@@ -586,7 +725,7 @@ public class ExportServiceImpl implements ExportService {
             for (String part : parts) {
                 String trimmed = part.trim();
                 if (!trimmed.isEmpty() && SqlSafeUtils.isValidIdentifier(trimmed)) {
-                    tables.add(trimmed.toUpperCase());
+                    tables.add(currentDialect().isDm() ? trimmed.toUpperCase() : trimmed);
                 }
             }
         } else if ("customSql".equals(type) && config.getCustomSql() != null) {
