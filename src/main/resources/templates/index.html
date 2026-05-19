@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据库导出工具</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/style.css?v=20260519-ui2">
 </head>
 <body class="app-shell">
     <!-- Sidebar -->
@@ -117,14 +117,14 @@
                     <label>用户名</label>
                     <input class="input" id="dbUser" placeholder="用户名">
                 </div>
-                <div class="form-group password-actions">
-                    <div class="password-field">
-                        <label>密码</label>
-                        <input class="input" id="dbPass" type="password" placeholder="密码">
-                    </div>
-                    <button class="btn btn-secondary" onclick="testConnection()">测试连接</button>
-                    <button class="btn btn-primary" onclick="connectDatabase()">连接</button>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input class="input" id="dbPass" type="password" placeholder="密码">
                 </div>
+            </div>
+            <div class="connection-actions">
+                <button class="btn btn-secondary" onclick="testConnection()">测试连接</button>
+                <button class="btn btn-primary" onclick="connectDatabase()">连接</button>
             </div>
             <div id="driverCustomRow" class="form-grid driver-custom-row" style="display:none;">
                 <div class="form-group">
@@ -155,16 +155,18 @@
             </div>
             <!-- Select Tables -->
             <div id="mode-selectTables" style="display:none;">
-                <div class="action-bar">
-                    <div class="action-bar-left">
+                <div class="table-picker-toolbar">
+                    <div class="table-picker-search">
                         <input class="input search-input" id="tableSearch" placeholder="搜索表名..." oninput="filterTables()">
+                    </div>
+                    <div class="table-picker-actions">
                         <button class="btn btn-sm btn-secondary" onclick="selectAllTables()">全选</button>
                         <button class="btn btn-sm btn-secondary" onclick="invertTables()">反选</button>
                         <button class="btn btn-sm btn-secondary" onclick="clearTables()">清空</button>
+                        <span class="action-bar-meta" id="selectedCount">已选择: 0 个表</span>
                     </div>
-                    <span class="action-bar-meta" id="selectedCount">已选择: 0 个表</span>
                 </div>
-                <div id="tableList" class="table-shell select-table-list">
+                <div id="tableList" class="table-picker-shell">
                     <p class="placeholder-note">请先连接数据库</p>
                 </div>
             </div>
@@ -174,7 +176,9 @@
                     <label>每行输入一条SELECT语句，Sheet名自动从表名提取</label>
                     <textarea class="input code-input" id="customSql" rows="8" placeholder="SELECT * FROM TABLE1 WHERE STATUS = 'ACTIVE'&#10;SELECT ID, NAME FROM TABLE2 WHERE DATE > '2025-01-01'"></textarea>
                 </div>
-                <button class="btn btn-sm btn-secondary sql-validate-btn" onclick="validateSql()">验证SQL</button>
+                <div class="sql-actions">
+                    <button class="btn btn-sm btn-secondary sql-validate-btn" onclick="validateSql()">验证SQL</button>
+                </div>
                 <div id="sqlValidateResult" class="validation-list"></div>
             </div>
         </div>
@@ -192,12 +196,18 @@
                     <span class="filter-toggle-title">时间范围过滤</span>
                 </div>
                 <div id="timeFilterFields" class="filter-fields" style="display:none;">
-                    <span class="filter-label">时间字段</span>
-                    <input class="input compact-input" id="timeFieldNames" placeholder="DATE、DATA_TIME">
-                    <span class="filter-label">从</span>
-                    <input class="input compact-input" id="startDate" type="text" placeholder="2026-05-13">
-                    <span class="filter-label">到</span>
-                    <input class="input compact-input" id="endDate" type="text" placeholder="2026-05-18">
+                    <div class="form-group">
+                        <label>时间字段</label>
+                        <input class="input" id="timeFieldNames" placeholder="DATE、DATA_TIME">
+                    </div>
+                    <div class="form-group">
+                        <label>开始日期</label>
+                        <input class="input" id="startDate" type="text" placeholder="2026-05-13">
+                    </div>
+                    <div class="form-group">
+                        <label>结束日期</label>
+                        <input class="input" id="endDate" type="text" placeholder="2026-05-18">
+                    </div>
                 </div>
             </div>
             <!-- Field Filter -->
@@ -210,16 +220,22 @@
                     <span class="filter-toggle-title">自定义字段过滤</span>
                 </div>
                 <div id="fieldFilterFields" class="filter-fields" style="display:none;">
-                    <span class="filter-label">字段名</span>
-                    <input class="input compact-input compact-input-sm" id="filterFieldName" placeholder="CASE_ID">
-                    <span class="filter-label">方式</span>
-                    <select class="input compact-input compact-input-xs" id="filterType">
-                        <option value="EQUAL">等于</option>
-                        <option value="IN">包含</option>
-                        <option value="RANGE">范围</option>
-                    </select>
-                    <span class="filter-label">值</span>
-                    <input class="input compact-input compact-input-md" id="filterValue" placeholder="值">
+                    <div class="form-group">
+                        <label>字段名</label>
+                        <input class="input" id="filterFieldName" placeholder="CASE_ID">
+                    </div>
+                    <div class="form-group">
+                        <label>过滤方式</label>
+                        <select class="input" id="filterType">
+                            <option value="EQUAL">等于</option>
+                            <option value="IN">包含</option>
+                            <option value="RANGE">范围</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>过滤值</label>
+                        <input class="input" id="filterValue" placeholder="值">
+                    </div>
                 </div>
             </div>
         </div>
@@ -273,7 +289,7 @@
                 <span id="progressPercent" class="progress-percent">0%</span>
             </div>
             <div class="progress-stats">
-                <div class="progress-stat">
+                <div class="progress-stat current-table-stat">
                     <div class="value" id="currentTableName">-</div>
                     <div class="label">当前表</div>
                 </div>
@@ -345,7 +361,6 @@
                     <button class="btn btn-secondary" onclick="searchTemplates()">搜索</button>
                 </div>
                 <div class="action-bar-right">
-                    <button class="btn btn-primary" onclick="openNewTemplateModal()">新建模板</button>
                     <button class="btn btn-secondary" onclick="batchExportTemplates()">批量导出</button>
                     <button class="btn btn-secondary" onclick="document.getElementById('templateImportFile').click()">批量导入</button>
                     <input type="file" id="templateImportFile" class="hidden-input" accept=".zip" onchange="importTemplates(event)">
@@ -499,6 +514,6 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="/js/main.js"></script>
+    <script src="/js/main.js?v=20260519-ui2"></script>
 </body>
 </html>

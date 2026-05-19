@@ -195,39 +195,122 @@ async function loadTableList() {
 
 function renderTableList(filter) {
     const container = document.getElementById('tableList');
-    let tables = dbTables;
-    if (filter) tables = tables.filter(t => t.tableName.toLowerCase().includes(filter.toLowerCase()));
-    if (tables.length === 0) {
-        container.innerHTML = '<p class="placeholder-note">无匹配的表</p>';
+    if (!dbTables || dbTables.length === 0) {
+        container.innerHTML = '<p class="placeholder-note">请先连接数据库</p>';
+        updateSelectedCount();
         return;
     }
-    let html = '<table class="data-table"><thead><tr><th style="width:40px;"></th><th>表名</th><th>记录数</th></tr></thead><tbody>';
-    tables.forEach(t => {
-        const checked = selectedTables.has(t.tableName) ? 'checked' : '';
-        html += `<tr><td><input type="checkbox" class="checkbox" ${checked} data-table="${escapeAttr(t.tableName)}" onchange="toggleTable('${escapeAttr(t.tableName)}', this.checked)"></td>
-                 <td>${escapeHtml(t.tableName)}</td><td>${t.rowCount >= 0 ? t.rowCount.toLocaleString() : '-'}</td></tr>`;
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
+
+    const keyword = (filter || '').trim().toLowerCase();
+    const matches = (table) => !keyword || table.tableName.toLowerCase().includes(keyword);
+    const availableTables = dbTables.filter(t => !selectedTables.has(t.tableName) && matches(t));
+    const selectedTableData = dbTables.filter(t => selectedTables.has(t.tableName));
+
+    container.innerHTML = `
+        <div class="table-picker-grid">
+            <section class="table-picker-panel">
+                <div class="table-picker-panel-header">
+                    <span class="table-picker-panel-title">待选区</span>
+                    <span class="table-picker-panel-meta">${availableTables.length} 个可选</span>
+                </div>
+                <div class="table-picker-list">
+                    ${renderTablePickerRows(availableTables, 'add')}
+                </div>
+            </section>
+            <section class="table-picker-panel">
+                <div class="table-picker-panel-header">
+                    <span class="table-picker-panel-title">已选区</span>
+                    <span class="table-picker-panel-meta">${selectedTables.size} 个已选</span>
+                </div>
+                <div class="table-picker-list">
+                    ${renderTablePickerRows(selectedTableData, 'remove')}
+                </div>
+            </section>
+        </div>`;
+    bindTablePickerRows(container);
     updateSelectedCount();
+}
+
+function renderTablePickerRows(tables, action) {
+    if (tables.length === 0) {
+        return `<div class="table-picker-empty">${action === 'add' ? '无匹配的待选表' : '暂无已选表'}</div>`;
+    }
+    return tables.map(t => {
+        const rowCount = t.rowCount >= 0 ? t.rowCount.toLocaleString() : '-';
+        const selected = action === 'remove';
+        const actionText = selected ? '移除' : '添加';
+        return `
+            <div class="table-picker-row ${selected ? 'selected' : ''}" data-picker-action="${action}" data-table="${escapeAttr(t.tableName)}" title="${escapeAttr(t.tableName)}">
+                <input type="checkbox" class="checkbox" ${selected ? 'checked' : ''} aria-label="${escapeAttr(actionText + t.tableName)}">
+                <span class="table-picker-name">${escapeHtml(t.tableName)}</span>
+                <span class="table-picker-count">${rowCount}</span>
+                <button class="btn btn-xs btn-secondary" type="button">${actionText}</button>
+            </div>`;
+    }).join('');
+}
+
+function bindTablePickerRows(container) {
+    container.querySelectorAll('.table-picker-row').forEach(row => {
+        const runAction = () => handleTablePickerAction(row.dataset.pickerAction, row.dataset.table);
+        row.addEventListener('click', runAction);
+        row.querySelectorAll('input, button').forEach(control => {
+            control.addEventListener('click', event => {
+                event.stopPropagation();
+                runAction();
+            });
+        });
+    });
+}
+
+function handleTablePickerAction(action, tableName) {
+    if (!tableName) return;
+    if (action === 'add') selectedTables.add(tableName);
+    if (action === 'remove') selectedTables.delete(tableName);
+    renderTableList(document.getElementById('tableSearch').value);
+}
+
+function getVisibleTables() {
+    const keyword = (document.getElementById('tableSearch').value || '').trim().toLowerCase();
+    return dbTables.filter(t => !keyword || t.tableName.toLowerCase().includes(keyword));
+}
+
+function refreshTablePicker() {
+    renderTableList(document.getElementById('tableSearch').value);
 }
 
 function toggleTable(name, checked) {
     if (checked) selectedTables.add(name); else selectedTables.delete(name);
-    updateSelectedCount();
+    refreshTablePicker();
 }
-function selectAllTables() { dbTables.forEach(t => selectedTables.add(t.tableName)); renderTableList(document.getElementById('tableSearch').value); }
-function invertTables() { dbTables.forEach(t => { if (selectedTables.has(t.tableName)) selectedTables.delete(t.tableName); else selectedTables.add(t.tableName); }); renderTableList(document.getElementById('tableSearch').value); }
-function clearTables() { selectedTables.clear(); renderTableList(); }
-function filterTables() { renderTableList(document.getElementById('tableSearch').value); }
-function updateSelectedCount() { document.getElementById('selectedCount').textContent = '已选择: ' + selectedTables.size + ' 个表'; }
+function selectAllTables() {
+    getVisibleTables().forEach(t => selectedTables.add(t.tableName));
+    refreshTablePicker();
+}
+function invertTables() {
+    getVisibleTables().forEach(t => {
+        if (selectedTables.has(t.tableName)) selectedTables.delete(t.tableName);
+        else selectedTables.add(t.tableName);
+    });
+    refreshTablePicker();
+}
+function clearTables() {
+    selectedTables.clear();
+    refreshTablePicker();
+}
+function filterTables() {
+    refreshTablePicker();
+}
+function updateSelectedCount() {
+    const selectedCount = document.getElementById('selectedCount');
+    if (selectedCount) selectedCount.textContent = '已选择: ' + selectedTables.size + ' 个表';
+}
 
 /* ====== Filter Toggles ====== */
 function toggleTimeFilter() {
-    document.getElementById('timeFilterFields').style.display = document.getElementById('enableTimeFilter').checked ? 'flex' : 'none';
+    document.getElementById('timeFilterFields').style.display = document.getElementById('enableTimeFilter').checked ? '' : 'none';
 }
 function toggleFieldFilter() {
-    document.getElementById('fieldFilterFields').style.display = document.getElementById('enableFieldFilter').checked ? 'flex' : 'none';
+    document.getElementById('fieldFilterFields').style.display = document.getElementById('enableFieldFilter').checked ? '' : 'none';
 }
 
 /* ====== SQL Validate ====== */
@@ -334,7 +417,10 @@ function startProgressMonitor() {
             const p = data.data;
             document.getElementById('progressBar').style.width = p.progressPercent + '%';
             document.getElementById('progressPercent').textContent = p.progressPercent + '%';
-            document.getElementById('currentTableName').textContent = p.currentTable || '-';
+            const currentTableName = p.currentTable || '-';
+            const currentTableNameEl = document.getElementById('currentTableName');
+            currentTableNameEl.textContent = currentTableName;
+            currentTableNameEl.title = currentTableName;
             document.getElementById('completedInfo').textContent = p.completedTables + '/' + p.totalTables;
             document.getElementById('totalRows').textContent = p.totalRows.toLocaleString();
             document.getElementById('elapsedTime').textContent = formatTime(p.elapsedTime);
@@ -662,7 +748,7 @@ function renderExportFiles(files) {
             <td>${f.createTime ? new Date(f.createTime).toLocaleString() : '-'}</td>
             <td>${renderStatusPill(f.status)}</td>
             <td>
-                <div class="table-inline-actions">
+                <div class="table-inline-actions records-inline-actions">
                     <button class="btn btn-sm btn-primary" onclick="downloadFile('${escapeAttr(f.fileName)}')">下载</button>
                     <button class="btn btn-sm btn-danger" onclick="deleteFile('${escapeAttr(f.fileName)}')">删除</button>
                 </div>

@@ -239,6 +239,7 @@ strong {
 .input,
 select.input {
     width: 100%;
+    min-width: 0;
     min-height: 48px;
     padding: 12px 14px;
     border: 1px solid var(--border);
@@ -378,13 +379,15 @@ textarea.input {
 }
 
 .connection-grid {
-    grid-template-columns: 140px minmax(220px, 1fr) 100px 180px 140px minmax(220px, 1fr);
+    grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1.45fr) minmax(92px, 0.55fr) minmax(160px, 1fr) minmax(160px, 1fr) minmax(170px, 1fr);
+    align-items: end;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
 }
 
 .form-group label {
@@ -397,18 +400,12 @@ textarea.input {
     margin-top: 16px;
 }
 
-.password-actions {
+.connection-actions {
     display: flex;
-    align-items: flex-end;
+    justify-content: flex-end;
     gap: 10px;
+    margin-top: 18px;
     flex-wrap: wrap;
-}
-
-.password-field {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
 }
 
 .page-actions {
@@ -735,12 +732,157 @@ textarea.input {
     min-width: 220px;
 }
 
+.sql-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 12px;
+}
+
+/* 表选择器 */
+.table-picker-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.table-picker-search {
+    flex: 1;
+    min-width: 260px;
+}
+
+.table-picker-search .search-input {
+    width: min(420px, 100%);
+}
+
+.table-picker-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.table-picker-shell {
+    padding: 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-subtle);
+}
+
+.table-picker-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.48fr);
+    gap: 14px;
+    align-items: stretch;
+}
+
+.table-picker-panel {
+    min-width: 0;
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--bg-card-strong);
+}
+
+.table-picker-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(229, 236, 250, 0.72);
+}
+
+.table-picker-panel-title {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.table-picker-panel-meta {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.table-picker-list {
+    flex: 1;
+    max-height: 380px;
+    overflow: auto;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 12px;
+}
+
+.table-picker-row {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 82px auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 46px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.86);
+    cursor: pointer;
+    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.table-picker-row:hover {
+    border-color: var(--border-strong);
+    background: rgba(239, 244, 255, 0.96);
+    box-shadow: var(--shadow-xs);
+}
+
+.table-picker-row.selected {
+    border-color: rgba(52, 104, 255, 0.26);
+    background: var(--primary-soft);
+}
+
+.table-picker-name {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.table-picker-count {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: right;
+}
+
+.table-picker-empty {
+    padding: 46px 12px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.btn-xs {
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
 /* Filters and config */
 .filter-toggle-row {
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    align-items: center;
     gap: 18px;
-    flex-wrap: wrap;
     padding: 18px 20px;
     border: 1px solid var(--border);
     border-radius: 18px;
@@ -755,7 +897,7 @@ textarea.input {
     display: flex;
     align-items: center;
     gap: 12px;
-    min-width: 180px;
+    min-width: 0;
 }
 
 .switch {
@@ -807,10 +949,18 @@ textarea.input {
 }
 
 .filter-fields {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(160px, 260px));
+    align-items: end;
+    gap: 14px;
+}
+
+.filter-fields .form-group {
+    min-width: 0;
+}
+
+.filter-fields .input {
+    width: 100%;
 }
 
 .filter-label {
@@ -900,6 +1050,7 @@ textarea.input {
 }
 
 .progress-stat {
+    min-width: 0;
     padding: 18px 16px;
     border: 1px solid var(--border);
     border-radius: 18px;
@@ -908,10 +1059,20 @@ textarea.input {
 }
 
 .progress-stat .value {
+    min-width: 0;
     font-size: 24px;
     line-height: 1.15;
     font-weight: 800;
     letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.current-table-stat .value {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .progress-stat .label {
@@ -1100,13 +1261,14 @@ textarea.input {
 }
 
 .col-actions-sm {
-    width: 140px;
+    width: 190px;
 }
 
 .table-inline-actions {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: center;
 }
 
 .status-pill {
@@ -1693,6 +1855,8 @@ textarea.input {
 }
 
 [data-theme="dark"] .table-shell,
+[data-theme="dark"] .table-picker-shell,
+[data-theme="dark"] .table-picker-panel,
 [data-theme="dark"] .filter-toggle-row,
 [data-theme="dark"] .mode-tab-group,
 [data-theme="dark"] .progress-stat,
@@ -1705,8 +1869,20 @@ textarea.input {
     background: rgba(22, 35, 58, 0.92);
 }
 
+[data-theme="dark"] .table-picker-panel-header {
+    background: rgba(22, 35, 58, 0.92);
+}
+
 [data-theme="dark"] .data-table tbody td {
     background: rgba(14, 22, 38, 0.88);
+}
+
+[data-theme="dark"] .table-picker-row {
+    background: rgba(14, 22, 38, 0.88);
+}
+
+[data-theme="dark"] .table-picker-row:hover {
+    background: rgba(24, 36, 58, 0.92);
 }
 
 [data-theme="dark"] .data-table tbody tr:hover td {
@@ -1755,6 +1931,10 @@ textarea.input {
         padding: 22px 20px 28px;
     }
 
+    .table-picker-grid {
+        grid-template-columns: 1fr;
+    }
+
     .login-shell {
         grid-template-columns: 1fr;
         gap: 28px;
@@ -1776,6 +1956,19 @@ textarea.input {
     .progress-head {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .connection-actions {
+        justify-content: flex-start;
+    }
+
+    .filter-toggle-row {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .filter-fields {
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
     }
 
     .config-options {
@@ -1873,6 +2066,30 @@ textarea.input {
     .config-group,
     .radio-option {
         width: 100%;
+    }
+
+    .filter-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .table-picker-search,
+    .table-picker-search .search-input,
+    .table-picker-actions,
+    .table-picker-actions .btn,
+    .table-picker-actions .action-bar-meta {
+        width: 100%;
+    }
+
+    .table-picker-actions {
+        justify-content: stretch;
+    }
+
+    .table-picker-row {
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+    }
+
+    .table-picker-count {
+        display: none;
     }
 
     .table-inline-actions {
